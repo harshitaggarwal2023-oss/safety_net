@@ -1,23 +1,25 @@
 "use strict";
 
 /*
- * Safety Net — Phase 2: Safe Route Planner + opt-in Route History
+ * Safety Net — route.html: Safe Route Planner.
  *
- * Same XSS discipline as app.js: every piece of untrusted or dynamic text
- * (user input, geocoder results, route labels) reaches the DOM via
- * `textContent` or DOM nodes built with `textContent`, never via
- * `innerHTML` or Leaflet's default (HTML-parsing) popup string API.
+ * Split out of the original combined route.js. All planner logic below —
+ * the safety score model, geocoding, OSRM routing, rendering — is carried
+ * over unchanged from the Phase 2 handoff. The one NEW thing in this file
+ * is `routeRequestInFlight`, a client-side guard added this session so a
+ * rapid double-click/resubmit of the form can't fire overlapping geocode +
+ * routing requests.
+ *
+ * Same XSS discipline as before: all dynamic/user/geocoder text reaches the
+ * DOM via textContent or safePopupNode() (route-common.js), never innerHTML.
  *
  * External services used (no API key required for any of them):
- *  - Tiles:    tile.openstreetmap.org        (OSM standard tile layer)
- *  - Routing:  router.project-osrm.org       (public OSRM demo server)
- *  - Geocoding: nominatim.openstreetmap.org  (public Nominatim demo server)
- * These are free public demo instances with fair-use rate limits. That's
- * fine for a hackathon demo; a production deployment should run its own
- * OSRM/Nominatim instance or a paid provider instead of hammering the
- * shared demo servers. ponytail: no client-side request queuing/backoff is
- * implemented beyond "only fetch when the user explicitly submits the
- * form" — acceptable at demo scale, not at real traffic.
+ *  - Routing:   router.project-osrm.org       (public OSRM demo server)
+ *  - Geocoding: nominatim.openstreetmap.org   (public Nominatim demo server)
+ * These are free public demo instances with fair-use rate limits. Fine for
+ * a hackathon demo; a production deployment should run its own OSRM/
+ * Nominatim instance or a paid provider instead of hammering the shared
+ * demo servers.
  */
 
 // ---------------------------------------------------------------------------
@@ -65,9 +67,6 @@ function buildSafetyScore(routeCoords, incidentZones, now) {
     return { score: 100, label: "Safer", nearestZoneLabel: null };
   }
 
-  // Sample every few points instead of every single one — routes can have
-  // hundreds of coordinate pairs and we don't need per-meter precision for
-  // a demo score. Deterministic, not randomized.
   const SAMPLE_STRIDE = Math.max(1, Math.floor(routeCoords.length / 60));
   let riskSum = 0;
   let sampleCount = 0;
@@ -80,7 +79,7 @@ function buildSafetyScore(routeCoords, incidentZones, now) {
     for (const zone of incidentZones) {
       const d = haversineMeters(lat, lng, zone.lat, zone.lng);
       if (d <= zone.radius_m) {
-        const falloff = 1 - d / zone.radius_m; // 1 at center, 0 at edge
+        const falloff = 1 - d / zone.radius_m;
         const risk = zone.weight * falloff;
         riskSum += risk;
         if (risk > worstZoneRisk) {
@@ -149,46 +148,25 @@ const findRoutesBtn = document.getElementById("find-routes-btn");
 const routeStatus = document.getElementById("route-status");
 const routeOptionsList = document.getElementById("route-options");
 
-const startTrackingBtn = document.getElementById("start-tracking-btn");
-const stopTrackingBtn = document.getElementById("stop-tracking-btn");
-const trackingIndicator = document.getElementById("tracking-indicator");
-const exportHistoryBtn = document.getElementById("export-history-btn");
-const clearHistoryBtn = document.getElementById("clear-history-btn");
-const trackingStatus = document.getElementById("tracking-status");
-
 // ---------------------------------------------------------------------------
-// Map setup (single shared Leaflet instance for both routes and tracking)
+// Map setup — this page's own instance of the shared pattern in
+// route-common.js (createSafetyNetMap/safePopupNode). history.html creates
+// its own separate instance the same way; per the restructure spec they no
+// longer share one literal Leaflet object since they're different pages,
+// but the setup code and behavior are identical.
 // ---------------------------------------------------------------------------
 
-const DEFAULT_CENTER = [37.7749, -122.4194]; // San Francisco — matches mock incident data's area
-const map = L.map("map").setView(DEFAULT_CENTER, 12);
+const map = createSafetyNetMap("map");
 
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-}).addTo(map);
-
-let routeLayers = []; // L.polyline per route option currently shown
-let routeMarkers = []; // start/dest markers
+let routeLayers = [];
+let routeMarkers = [];
 let selectedRouteIndex = 0;
-
-let historyLayers = []; // past sessions, drawn once on load
-let activeTrackingLayer = null; // growing polyline for the current session
 
 function clearRouteLayers() {
   routeLayers.forEach((l) => map.removeLayer(l));
   routeMarkers.forEach((m) => map.removeLayer(m));
   routeLayers = [];
   routeMarkers = [];
-}
-
-// Build a Leaflet popup from plain text safely (never pass raw strings with
-// user/geocoder content into bindPopup, which parses its string argument as
-// HTML by default).
-function safePopupNode(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div;
 }
 
 // ---------------------------------------------------------------------------
@@ -249,7 +227,7 @@ useMyLocationBtn.addEventListener("click", () => {
 // Routing (OSRM) + rendering
 // ---------------------------------------------------------------------------
 
-const ROUTE_COLORS = ["#0ea5a4", "#f59e0b", "#a855f7"]; // safest-first color isn't implied; index-based only
+const ROUTE_COLORS = ["#0ea5a4", "#f59e0b", "#a855f7"];
 
 async function fetchRoutes(start, dest) {
   const url =
@@ -262,7 +240,7 @@ async function fetchRoutes(start, dest) {
   if (data.code !== "Ok" || !Array.isArray(data.routes) || data.routes.length === 0) {
     throw new Error(data.message || "No route found between these points.");
   }
-  return data.routes.slice(0, 3); // cap at 3 options, per spec
+  return data.routes.slice(0, 3);
 }
 
 function formatDuration(seconds) {
@@ -314,7 +292,7 @@ function renderRouteOptions(routes, scored) {
     li.addEventListener("click", () => {
       selectedRouteIndex = idx;
       highlightSelectedRoute();
-      renderRouteOptions(routes, scored); // re-render to move the "selected" class
+      renderRouteOptions(routes, scored);
     });
 
     routeOptionsList.appendChild(li);
@@ -328,8 +306,21 @@ function highlightSelectedRoute() {
   });
 }
 
+// ponytail: client-side-only request guard, not a substitute for real
+// server-side rate limiting. Purpose is twofold: (1) don't fire duplicate
+// geocode+route fetches if the user double-clicks or double-submits the
+// form (findRoutesBtn is also disabled during the request, but this flag
+// is the actual guard — the disabled attribute alone doesn't stop a form's
+// `submit` event from firing again via Enter-key repeat in every browser),
+// and (2) be a good citizen toward the free public OSRM/Nominatim demo
+// servers this app calls, which have fair-use limits meant for occasional
+// use, not automated hammering.
+let routeRequestInFlight = false;
+
 routeForm.addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (routeRequestInFlight) return;
+
   routeStatus.textContent = "";
   routeOptionsList.hidden = true;
 
@@ -340,6 +331,7 @@ routeForm.addEventListener("submit", async (e) => {
     return;
   }
 
+  routeRequestInFlight = true;
   findRoutesBtn.disabled = true;
   routeStatus.textContent = "Looking up locations…";
 
@@ -390,211 +382,7 @@ routeForm.addEventListener("submit", async (e) => {
     console.error("Safety Net: route planning failed.", err);
     routeStatus.textContent = "Couldn't plan a route right now — check your connection and try again.";
   } finally {
+    routeRequestInFlight = false;
     findRoutesBtn.disabled = false;
   }
 });
-
-// ---------------------------------------------------------------------------
-// Opt-in route history tracking
-// ---------------------------------------------------------------------------
-//
-// Privacy contract (treated as seriously as the SOS security rules):
-//  - OFF by default. Nothing is recorded until the user explicitly clicks
-//    "Start tracking".
-//  - Uses watchPosition (event-driven), not a setInterval poll loop.
-//  - Stored ONLY in localStorage, on this device. Never sent anywhere.
-//  - SOS alerts never read from or attach this history — fireSos() in
-//    app.js only ever uses a fresh getCurrentPosition() call for the live
-//    alert. Route history and the SOS location are fully independent data
-//    paths; nothing here changes what SOS sends.
-//  - A visible "Tracking is ON" indicator is shown for the whole time it's
-//    active, with a same-prominence "Stop tracking" button next to "Start".
-//  - "Clear route history" actually deletes the stored data (not just a
-//    UI-level hide).
-//  - Auto-stops after 4 hours max, or immediately when an SOS is canceled
-//    or finishes sending (see the safetynet:sos-ended listener below).
-
-const ROUTE_HISTORY_KEY = "safetyNet.routeHistory";
-// ponytail: 4-hour ceiling is a fixed constant, not user-configurable, and
-// tracking does not survive a page reload (watchPosition is lost, and we
-// don't persist "was tracking" + resume-on-load). Ceiling: a closed tab or
-// crashed browser silently ends tracking early, and no session can ever run
-// unattended past 4 hours even if the device stays open. Upgrade path: a
-// Service Worker / background sync for cross-reload persistence and truly
-// long-running tracking, if a future phase needs it.
-const MAX_TRACKING_MS = 4 * 60 * 60 * 1000;
-
-let watchId = null;
-let trackingTimeoutId = null;
-let currentSession = null; // { id, startedAt, points: [{lat,lng,timestamp}] }
-
-function loadHistorySessions() {
-  try {
-    const raw = localStorage.getItem(ROUTE_HISTORY_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (err) {
-    console.warn("Safety Net: couldn't read route history, treating as empty.", err);
-    return [];
-  }
-}
-
-function saveHistorySessions(sessions) {
-  localStorage.setItem(ROUTE_HISTORY_KEY, JSON.stringify(sessions));
-}
-
-function drawHistorySessions() {
-  historyLayers.forEach((l) => map.removeLayer(l));
-  historyLayers = [];
-  const sessions = loadHistorySessions();
-  sessions.forEach((session) => {
-    if (!Array.isArray(session.points) || session.points.length < 2) return;
-    const latlngs = session.points.map((p) => [p.lat, p.lng]);
-    const layer = L.polyline(latlngs, { color: "#64748b", weight: 3, opacity: 0.5, dashArray: "4 6" }).addTo(map);
-    historyLayers.push(layer);
-  });
-}
-
-function setTrackingUiActive(active) {
-  startTrackingBtn.hidden = active;
-  stopTrackingBtn.hidden = !active;
-  trackingIndicator.hidden = !active;
-}
-
-function startTracking() {
-  if (watchId !== null) return; // already tracking
-  if (!("geolocation" in navigator)) {
-    trackingStatus.textContent = "Your browser doesn't support location tracking.";
-    return;
-  }
-
-  currentSession = { id: `session-${Date.now()}`, startedAt: new Date().toISOString(), points: [] };
-  if (activeTrackingLayer) {
-    map.removeLayer(activeTrackingLayer);
-    activeTrackingLayer = null;
-  }
-
-  setTrackingUiActive(true);
-  trackingStatus.textContent = "Requesting location permission…";
-
-  watchId = navigator.geolocation.watchPosition(
-    (position) => {
-      const point = {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-        timestamp: Date.now(),
-      };
-      currentSession.points.push(point);
-      trackingStatus.textContent = `Tracking — ${currentSession.points.length} point(s) logged this session.`;
-
-      const latlng = [point.lat, point.lng];
-      if (!activeTrackingLayer) {
-        activeTrackingLayer = L.polyline([latlng], { color: "#0ea5a4", weight: 5, opacity: 0.9 }).addTo(map);
-      } else {
-        activeTrackingLayer.addLatLng(latlng);
-      }
-    },
-    (err) => {
-      // GeolocationPositionError codes: 1 = PERMISSION_DENIED (fatal — the
-      // user revoked permission, stop for real), 2 = POSITION_UNAVAILABLE
-      // and 3 = TIMEOUT (both transient — e.g. brief GPS/signal dropout;
-      // watchPosition keeps running and can still deliver a later success
-      // callback, so tracking should NOT be killed for these).
-      console.warn("Safety Net: watchPosition error during tracking.", err);
-      if (err.code === 1) {
-        trackingStatus.textContent = "Location permission denied — tracking stopped.";
-        stopTracking({ reason: "permission-denied" });
-      } else {
-        trackingStatus.textContent = `Tracking — momentarily lost location signal, still trying… (${currentSession ? currentSession.points.length : 0} point(s) logged so far)`;
-      }
-    },
-    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
-  );
-
-  trackingTimeoutId = setTimeout(() => {
-    stopTracking({ reason: "max-duration" });
-  }, MAX_TRACKING_MS);
-}
-
-function stopTracking(opts) {
-  const reason = (opts && opts.reason) || "user";
-  if (watchId !== null) {
-    navigator.geolocation.clearWatch(watchId);
-    watchId = null;
-  }
-  if (trackingTimeoutId !== null) {
-    clearTimeout(trackingTimeoutId);
-    trackingTimeoutId = null;
-  }
-
-  if (currentSession && currentSession.points.length > 0) {
-    currentSession.stoppedAt = new Date().toISOString();
-    currentSession.stopReason = reason;
-    const sessions = loadHistorySessions();
-    sessions.push(currentSession);
-    saveHistorySessions(sessions);
-    drawHistorySessions();
-  }
-  currentSession = null;
-
-  if (activeTrackingLayer) {
-    map.removeLayer(activeTrackingLayer);
-    activeTrackingLayer = null;
-  }
-
-  setTrackingUiActive(false);
-
-  const messages = {
-    user: "Tracking stopped. Route saved to this device.",
-    "max-duration": "Tracking auto-stopped after the 4-hour limit. Route saved to this device.",
-    "sos-ended": "Tracking auto-stopped because the SOS alert ended. Route saved to this device.",
-    "permission-denied": "Tracking stopped — location permission was denied or lost.",
-  };
-  trackingStatus.textContent = messages[reason] || "Tracking stopped.";
-}
-
-startTrackingBtn.addEventListener("click", startTracking);
-stopTrackingBtn.addEventListener("click", () => stopTracking({ reason: "user" }));
-
-clearHistoryBtn.addEventListener("click", () => {
-  localStorage.removeItem(ROUTE_HISTORY_KEY);
-  drawHistorySessions();
-  trackingStatus.textContent = "Route history cleared from this device.";
-});
-
-exportHistoryBtn.addEventListener("click", () => {
-  const sessions = loadHistorySessions();
-  if (sessions.length === 0) {
-    trackingStatus.textContent = "No route history to export yet.";
-    return;
-  }
-  // Explicit, user-initiated export only — this is the one path where route
-  // history data leaves localStorage, and only onto the user's own device
-  // as a downloaded file (never transmitted anywhere by this app).
-  const blob = new Blob([JSON.stringify(sessions, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `safety-net-route-history-${Date.now()}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-  trackingStatus.textContent = `Exported ${sessions.length} session(s) as a JSON file.`;
-});
-
-// Reused SOS pipeline hook: app.js dispatches this on cancel and after a
-// fire attempt finishes. If route-history tracking happens to be running,
-// stop it — but this never touches the SOS message/send path itself.
-document.addEventListener("safetynet:sos-ended", () => {
-  if (watchId !== null) {
-    stopTracking({ reason: "sos-ended" });
-  }
-});
-
-// ---------------------------------------------------------------------------
-// Init
-// ---------------------------------------------------------------------------
-
-drawHistorySessions();

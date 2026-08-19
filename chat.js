@@ -1,13 +1,14 @@
 "use strict";
 
 /*
- * Safety Net — Phase 3b: Chat distress detector
+ * Safety Net — chat.html: chat distress detector.
  *
  * Entirely client-side keyword/pattern matching over text the user types —
  * no network call, no server, nothing stored. This is a deliberate design
- * choice (see HANDOFF.md): the project has stayed backend-free through two
- * phases, and a "send typed text to a server for analysis" feature would be
- * a much bigger call than this session should make unilaterally.
+ * choice (see HANDOFF.md): the project has stayed backend-free through
+ * every phase, and a "send typed text to a server for analysis" feature
+ * would be a much bigger call than any single session should make
+ * unilaterally.
  *
  * ponytail: this is a small hand-authored keyword/phrase list, not a real
  * NLP classifier — it will miss paraphrased distress and can false-positive
@@ -19,14 +20,16 @@
  *
  * Because a naive keyword scanner *will* misfire sometimes, this never
  * auto-sends an alert the way the check-in dead-man's switch does. A flagged
- * message always shows an inline confirm/dismiss prompt first — the SOS
- * pipeline only actually reuses sendSosAlert() if the user taps "Send SOS
- * now". That's the deliberate difference from 3a: a missed check-in means
- * the user *couldn't* respond, so auto-firing is the point; typed text is
- * noisy, so a confirmation gate avoids alert fatigue and false alarms.
+ * message always shows an inline confirm/dismiss prompt first — the shared
+ * SOS pipeline (sos-engine.js) only actually reuses sendSosAlert() if the
+ * user taps "Send SOS now". That's the deliberate difference from the
+ * check-in switch: a missed check-in means the user *couldn't* respond, so
+ * auto-firing is the point; typed text is noisy, so a confirmation gate
+ * avoids alert fatigue and false alarms.
  *
- * Same DOM-safety discipline as app.js/route.js: every piece of user-typed
- * or generated text reaches the DOM via textContent, never innerHTML.
+ * Same DOM-safety discipline as every other file in this project: every
+ * piece of user-typed or generated text reaches the DOM via textContent,
+ * never innerHTML.
  */
 
 // ---------------------------------------------------------------------------
@@ -114,7 +117,25 @@ function appendSystemMessage(text, { flag = false } = {}) {
   return div;
 }
 
-function appendConfirmPrompt() {
+// ponytail-relevant guard, new this session (see restructure spec's
+// rate-limiting section): if the same distress phrase gets flagged
+// multiple times in a short window before the user acts on the first
+// prompt, don't stack a second/third identical confirm prompt on top of
+// it — a naive keyword scanner re-flagging the same typed phrase (e.g. a
+// user repeating themselves, or accidentally submitting twice) shouldn't
+// pile up duplicate "Send SOS now?" buttons. This is a UX/spam guard, not
+// a security control: a genuinely NEW distress message still always gets
+// its own prompt immediately.
+let activeConfirmPrompt = null; // { text, row } while a prompt is unresolved
+
+function appendConfirmPrompt(sourceText) {
+  if (activeConfirmPrompt) {
+    appendSystemMessage(
+      "(Still waiting on your answer to the safety check above — please confirm or dismiss that one first.)"
+    );
+    return;
+  }
+
   const wrap = appendSystemMessage(
     "That sounds like it could be a safety concern. Send an SOS alert to your trusted contact now?",
     { flag: true }
@@ -133,17 +154,21 @@ function appendConfirmPrompt() {
   dismissBtn.className = "btn btn-secondary btn-small";
   dismissBtn.textContent = "No, I'm okay";
 
+  activeConfirmPrompt = { text: sourceText };
+
   sendBtn.addEventListener("click", async () => {
     sendBtn.disabled = true;
     dismissBtn.disabled = true;
+    activeConfirmPrompt = null;
     appendSystemMessage("Sending SOS…");
     await sendSosAlert("chat-detector");
-    appendSystemMessage("SOS triggered — see the SOS section above for send status.");
+    appendSystemMessage("SOS triggered — see the status above for send details.");
   });
 
   dismissBtn.addEventListener("click", () => {
     sendBtn.disabled = true;
     dismissBtn.disabled = true;
+    activeConfirmPrompt = null;
     appendSystemMessage("OK — no alert sent.");
   });
 
@@ -164,8 +189,14 @@ chatForm.addEventListener("submit", (e) => {
   chatInput.value = "";
 
   if (detectDistress(text)) {
-    appendConfirmPrompt();
+    appendConfirmPrompt(text);
   }
 
   chatInput.focus();
 });
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+
+renderSosEngineWidget("sos-engine-mount");

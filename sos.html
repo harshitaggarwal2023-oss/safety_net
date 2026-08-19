@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Safety Net — SOS Alert</title>
+<meta name="description" content="One-tap SOS alert with live location, for students and anyone commuting or living alone.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%9F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+<!--
+  OPTIONAL real-send upgrade: uncomment the line below AFTER creating
+  env.js from env.js.example (env.js is gitignored, keep real keys out of git).
+  Left commented by default so a missing env.js never causes a 404.
+  <script src="env.js"></script>
+-->
+</head>
+<body>
+  <div id="site-nav"></div>
+
+  <div class="app">
+    <header class="page-header">
+      <h1>🆘 SOS Alert</h1>
+      <p class="tagline">Press and hold the button, or double-tap it, to arm. You'll get a 5-second countdown you can cancel before anything is sent.</p>
+    </header>
+
+    <section class="card" aria-labelledby="contact-status-heading">
+      <h2 id="contact-status-heading" class="sr-only">Trusted contact status</h2>
+      <p id="contact-status" class="contact-status"></p>
+    </section>
+
+    <section class="card sos-card" aria-labelledby="sos-heading">
+      <h2 id="sos-heading">SOS</h2>
+      <p class="hint hint-small">When it fires, Safety Net asks your browser for your live location to include in the alert. If you say no, you can type your location in instead.</p>
+
+      <div class="sos-wrap">
+        <button id="sos-btn" class="sos-btn" type="button" aria-pressed="false">
+          <span id="sos-btn-label">SOS</span>
+        </button>
+      </div>
+
+      <div id="countdown-area" class="countdown-area" hidden>
+        <p id="countdown-text" class="countdown-text" aria-live="assertive">Sending SOS in 5s</p>
+        <button id="cancel-btn" class="btn btn-cancel" type="button">Cancel</button>
+      </div>
+
+      <p id="sos-status" class="sos-status" aria-live="polite"></p>
+      <p id="cooldown-notice" class="cooldown-notice" aria-live="polite" hidden></p>
+    </section>
+
+    <div id="sos-engine-mount"></div>
+
+    <footer class="app-footer">
+      <p>Nothing is sent anywhere except to the trusted contact you set on the Home page, and only when SOS actually fires.</p>
+    </footer>
+  </div>
+
+  <script src="nav.js"></script>
+  <script src="contact-store.js"></script>
+  <script src="sos-engine.js"></script>
+  <script src="sos-page.js"></script>
+  <script>renderNav("sos");</script>
+</body>
+</html>

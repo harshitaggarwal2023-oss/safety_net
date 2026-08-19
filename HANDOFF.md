@@ -1,15 +1,27 @@
 # HANDOFF — Safety Net
 
-Last updated: 2026-08-19 (Phase 3 build session — **final session**)
+Last updated: 2026-08-19 (Phase 4 session — multi-page restructure completion pass)
 
 ## What's built and confirmed working
 
-Static, dependency-free web app: `index.html` + `style.css` + `app.js` +
-`route.js` + `data/mock-incidents.json`. No backend, no build step, no npm
-packages required to run it. Two external free services (no API key) are
-used only by Phase 2's route planner: OpenStreetMap tiles, the public OSRM
-demo router, and the public Nominatim demo geocoder — all loaded/fetched
-live, never vendored into the repo.
+Static, dependency-free web app, now split across **six pages** instead of
+the single-page `index.html` described in the Phase 1-3 notes below:
+`index.html` (landing), `sos.html`, `route.html`, `history.html`,
+`checkin.html`, `chat.html` — plus shared `style.css` and
+`data/mock-incidents.json`. The old single-file `app.js` and `route.js`
+no longer exist; their logic was split into `nav.js`, `contact-store.js`,
+`contact-widget.js`, `sos-engine.js`, `sos-page.js`, `checkin.js`,
+`route-common.js`, `route-planner.js`, `route-history.js`, and `chat.js`
+— see the **Phase 4** section below for exactly what moved where and why.
+No backend, no build step, no npm packages required to run it. Two
+external free services (no API key) are used only by the route planner:
+OpenStreetMap tiles, the public OSRM demo router, and the public Nominatim
+demo geocoder — all loaded/fetched live, never vendored into the repo.
+
+The Phase 1/2/3 narrative below describes the *original single-page*
+build and is kept for history — the logic it describes is still present
+and unchanged in behavior, just relocated into the files named above and
+in the Phase 4 section.
 
 ### Phase 1 — SOS Alert (unchanged, re-verified this session)
 
@@ -208,6 +220,118 @@ duplicating the SOS pipeline:**
   on-device text classifier if false-positive/negative rates matter beyond
   a hackathon demo.
 
+### Phase 4 — Multi-page restructure, landing page, "stay logged in," client-side rate/spam guards (this session)
+
+**Multi-page split.** The single `index.html` from Phases 1-3 is now a
+dedicated landing page plus five feature pages, each loading only the
+shared files it needs:
+
+| Page | Loads | Purpose |
+|---|---|---|
+| `index.html` | `nav.js`, `contact-store.js`, `contact-widget.js` | Landing page: trusted-contact setup, feature links, "continue where you left off" |
+| `sos.html` | `nav.js`, `contact-store.js`, `sos-engine.js`, `sos-page.js`, `env.js` | Manual SOS arm/countdown/fire |
+| `route.html` | `nav.js`, `route-common.js`, `route-planner.js`, Leaflet | Safe route planner |
+| `history.html` | `nav.js`, `sos-engine.js`, `route-common.js`, `route-history.js`, Leaflet | Opt-in route tracking/history |
+| `checkin.html` | `nav.js`, `contact-store.js`, `sos-engine.js`, `checkin.js` | Dead-man's-switch check-in |
+| `chat.html` | `nav.js`, `contact-store.js`, `sos-engine.js`, `chat.js` | Chat distress detector |
+
+`sos-engine.js` is the shared `sendSosAlert()` pipeline (get contact, get
+location, build message, send, broadcast `safetynet:sos-ended`) — the
+exact Phase 3 logic, unchanged, now in its own file so `sos.html`,
+`checkin.html`, and `chat.html` can each include it without duplicating
+or forking it. It also owns the new cross-tab signal (`storage` event +
+a small localStorage key) so an SOS ending on one page/tab still reaches
+listeners on another — a same-document `CustomEvent` alone stopped being
+enough once these features could be open in different tabs.
+
+**"Stay logged in" — client-side session persistence, not real
+authentication.** Two separate, honestly-scoped mechanisms:
+- The trusted contact record (`contact-store.js`, `localStorage` key
+  `safetyNet.trustedContact`) is unchanged from Phase 1 — any page that
+  needs it reads the same record, so it's never re-asked for once saved.
+- `nav.js` additionally remembers the last-visited page in
+  **`sessionStorage`** (tab-scoped, wiped on tab close — deliberately
+  *not* `localStorage`), purely so a reload/return to the landing page
+  can offer a "continue where you left off" link.
+
+**Neither of these is a login system.** There is no password field, no
+login form, and no server to authenticate against anywhere in this
+project — confirmed by inspection this session (grepped every `.html`/
+`.js` file for password/login UI: none found). "Stay logged in" here
+means only "your saved contact and last page persist across visits on
+this device," nothing more. A real login system would need a backend
+this project deliberately doesn't have.
+
+**Client-side rate-limit / spam guards — accident and abuse-*friction*,
+not real rate limiting.** Three separate guards were added this session,
+each marked with a `ponytail:` comment naming its actual ceiling:
+1. **SOS cooldown** (`sos-page.js`, `COOLDOWN_MS = 30 * 1000`) — after a
+   fire attempt resolves, the SOS button disables for 30s with a visible,
+   live-updating countdown ("SOS can be armed again in Ns"), then
+   re-enables automatically. Verified this session via a scripted trace:
+   armed → 5s countdown → fired → disabled with countdown text starting
+   at 30s → ticked down every second → re-enabled at ~35s total.
+2. **Route-planner in-flight guard** (`route-planner.js`,
+   `routeRequestInFlight`) — a boolean flag (not just the button's
+   `disabled` attribute, which doesn't stop a form's `submit` event
+   firing again via Enter-key repeat) that drops a second geocode/route
+   submit while one is already in flight, so the free public OSRM/
+   Nominatim demo servers don't get hit with overlapping requests from a
+   double-submit.
+3. **Chat confirm-prompt de-dupe** (`chat.js`, `activeConfirmPrompt`) —
+   if the keyword detector re-flags text while a confirm/dismiss prompt
+   from an earlier flag is still unanswered, it does not stack a second
+   prompt; it appends a one-line nudge to resolve the existing one
+   instead. A genuinely new flagged message after the prior one is
+   resolved still always gets its own prompt.
+
+**None of these three guards is server-side rate limiting.** All three
+are `Math.random()`-free, purely-client-side, and trivially bypassed by
+anyone willing to edit the page's JS or open a second browser/device —
+they exist to stop *accidental* spam (mashing a button, double-submitting
+a form, a keyword scanner re-triggering on repeated typing), not to
+defend against a determined attacker. Real rate limiting against abuse
+would need a backend to enforce server-side, same category of limitation
+as the "stay logged in" note above and the pre-existing Phase 3 dead-
+man's-switch tab-must-stay-open limitation. See "Known limitations"
+below for what a future session would need to add a real backend for
+either of these "for real."
+
+**This session's verification (targeted, not a full re-test):**
+- **Step 1 — content check of four specific pieces of Phase 4 logic**,
+  read line-by-line rather than just confirmed-present-by-file-existing:
+  - SOS cooldown: **present and correct**, in `sos-page.js` (the arm/
+    countdown state-machine file) rather than `sos-engine.js` (the shared
+    send pipeline) — the right file for it, since the cooldown is UI
+    state belonging to the button, not the send logic. 30s constant,
+    visible countdown text, button disabled throughout, `ponytail:`
+    comment present. No change needed.
+  - Route-planner double-submit guard: **present and correct** —
+    `routeRequestInFlight` checked at the top of the submit handler, set
+    before the fetches, cleared in a `finally` block so it resets even on
+    error. No change needed.
+  - Chat confirm-prompt de-dupe: **present and correct** — verified the
+    "still waiting" nudge path and confirmed a second *new* flagged
+    message after resolving the first still gets its own prompt. No
+    change needed.
+  - `nav.js`/`contact-store.js` session behavior: **present and
+    correct** — `sessionStorage` (not `localStorage`) used for last-page,
+    existing trusted-contact `localStorage` reused as-is, and no
+    password/login UI found anywhere in the project. No change needed.
+  - All four items were already correct; nothing in this file needed
+    fixing.
+- **Step 2 — single lightweight pass, not a full suite re-run**: served
+  the app locally and scripted a click-through of every nav link on all
+  six pages in both directions (no broken links, no 404s), plus a full
+  timed trace of the SOS flow end-to-end (hold-to-arm → 5s countdown →
+  fire → 30s cooldown with live countdown → re-enable). Both passed
+  clean. `route.html`/`history.html` show CORS/`L is not defined`
+  console errors in this sandbox specifically because this build
+  environment's outbound network doesn't reach `unpkg.com` — same
+  documented sandbox-only noise as Phase 2/3's self-checks below, not a
+  code issue (confirmed no other console/page errors on any of the other
+  four pages, which have no external dependencies).
+
 ## Exact run command + local URL
 
 ```bash
@@ -317,21 +441,31 @@ that install on `NODE_PATH` (or install playwright locally in
 
 ## Repo size / branch
 
-See the README/packaging output from this session's final packaging step
-for the exact `du -sh` / `git count-objects` figures and confirmed
-single-branch state — both were re-checked after all Phase 3 files were
-added, per this session's packaging checklist.
+Checked this session, after the Phase 4 restructure:
+- `du -sh .` (repo root, including `.git`): **572K**
+- `du -sh .` excluding `.git`: **244K**
+- Both are far under the 10MB constraint, with a lot of headroom.
+- `git branch -a`: **exactly one branch, `main`** — confirmed.
 
-## Status: all three planned phases complete
+(`node_modules/` lives in the *outer* `webapp/` directory, which is
+unrelated Cloudflare/Vite scaffolding, not part of this project — see
+the top of this file. It's excluded from the figures above and must
+never be committed or zipped alongside `safety-net/`.)
 
-This was the final planned build session. Phase 1 (SOS), Phase 2 (safe
-route planner + opt-in route history), and Phase 3 (check-in dead-man's
-switch + chat distress detector) are all built, wired together through the
-shared `sendSosAlert()` pipeline, and self-checked (with the one sandbox
-network caveat on Phase 2's live-service test noted above). There is no
-further planned roadmap in this handoff; see "Known limitations" throughout
-this document for the honest list of what a *future* session would need to
-address if this project continues past the hackathon (a backend for
-true background dead-man's-switch delivery and real SMS sending being the
-two biggest ones — both require introducing a server, which every session
-so far has deliberately deferred as a non-incidental decision).
+## Status: four phases complete — SOS, route planner, check-in/chat, multi-page restructure
+
+Phase 1 (SOS), Phase 2 (safe route planner + opt-in route history), Phase 3
+(check-in dead-man's switch + chat distress detector), and now Phase 4
+(multi-page restructure, landing page, client-side session persistence,
+client-side rate/spam guards) are all built, wired together through the
+shared `sendSosAlert()` pipeline, and self-checked — Phases 1-3 via the
+Playwright suites described above, Phase 4 via this session's targeted
+content read-through plus a single scripted nav/SOS-cooldown pass (see the
+Phase 4 section). There is no further planned roadmap in this handoff; see
+"Known limitations" throughout this document, plus the Phase 4 section's
+honest breakdown of what "stay logged in" and the client-side rate/spam
+guards do and don't cover, for what a *future* session would need a real
+backend to do "for real" (true background dead-man's-switch delivery, real
+SMS sending, real authentication, and real server-enforced rate limiting
+being the biggest ones — every session so far has deliberately deferred
+introducing a server as a non-incidental decision).

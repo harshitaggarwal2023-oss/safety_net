@@ -1,16 +1,18 @@
 "use strict";
 
 /*
- * Safety Net — Phase 3a: Check-in / dead-man's switch
+ * Safety Net — checkin.html: check-in / dead-man's switch.
  *
- * Reuses, not rebuilds, the Phase 1 SOS pipeline: sendSosAlert() lives in
- * app.js and is called directly here with triggerReason "checkin-timeout".
- * No location/message/send logic is duplicated in this file.
+ * Reuses, not rebuilds, the shared SOS pipeline: sendSosAlert() lives in
+ * sos-engine.js and is called directly here with triggerReason
+ * "checkin-timeout". No location/message/send logic is duplicated in this
+ * file. contactIsValid()/loadContact() come from contact-store.js, also
+ * reused unchanged.
  *
- * Same discipline as app.js/route.js: all dynamic text reaches the DOM via
- * textContent, all timers are cleared on every exit path, and this feature
- * stays fully client-side (localStorage only, no new network calls beyond
- * what sendSosAlert() already does).
+ * Same discipline as every other file in this project: all dynamic text
+ * reaches the DOM via textContent, all timers are cleared on every exit
+ * path, and this feature stays fully client-side (localStorage only, no
+ * new network calls beyond what sendSosAlert() already does).
  */
 
 // ---------------------------------------------------------------------------
@@ -45,8 +47,10 @@ function clearCheckinState() {
 // DOM refs
 // ---------------------------------------------------------------------------
 
+const contactGate = document.getElementById("checkin-contact-gate");
 const checkinForm = document.getElementById("checkin-form");
 const checkinMinutesInput = document.getElementById("checkin-minutes");
+const checkinStartBtn = document.getElementById("checkin-start-btn");
 const checkinActiveArea = document.getElementById("checkin-active-area");
 const checkinCountdown = document.getElementById("checkin-countdown");
 const checkinSafeBtn = document.getElementById("checkin-safe-btn");
@@ -82,6 +86,21 @@ function formatRemaining(ms) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function renderContactGate() {
+  // Informational only — deliberately does NOT disable checkinStartBtn.
+  // The actual gate is beginCheckin()'s own contactIsValid() check below,
+  // same as the original Phase 3 behavior: submitting without a contact
+  // shows a status message rather than a pre-disabled button, so a user
+  // who adds a contact on another tab still gets an accurate in-the-moment
+  // check when they submit here.
+  const contact = loadContact();
+  const ok = contactIsValid(contact);
+  contactGate.textContent = ok
+    ? `Trusted contact: ${contact.name} (${contact.email || contact.phone})`
+    : "No valid trusted contact saved yet — set one up on the Home page before starting a check-in timer.";
+  return ok;
+}
+
 function setActiveUi(active) {
   checkinActiveArea.hidden = !active;
   checkinForm.hidden = active;
@@ -100,9 +119,7 @@ async function handleCheckinElapsed() {
   setActiveUi(false);
   checkinStatus.textContent = "No check-in received — sending SOS automatically…";
   await sendSosAlert("checkin-timeout");
-  // sendSosAlert() already wrote a specific outcome to #sos-status; reflect
-  // it here too since this card has its own status line.
-  checkinStatus.textContent = "Check-in timer elapsed — SOS alert triggered. See the SOS section above for send status.";
+  checkinStatus.textContent = "Check-in timer elapsed — SOS alert triggered. See the status above for send details.";
 }
 
 function tick() {
@@ -128,9 +145,19 @@ function startTicking() {
 }
 
 function beginCheckin(durationMs) {
+  // Re-verified this session (per the restructure spec's rate-limiting
+  // section): a check-in timer is already prevented from double-starting,
+  // because starting one always writes/overwrites a single localStorage
+  // key and this function is the only path to an "active" UI state — the
+  // form is hidden (setActiveUi(true)) the instant one starts, so there is
+  // no second "Start" control visible to trigger a concurrent timer while
+  // one's already running. This guard was correct from the Phase 3 handoff
+  // and needed no change for the multi-page split.
+  if (loadCheckinState()) return;
+
   const contact = loadContact();
   if (!contactIsValid(contact)) {
-    checkinStatus.textContent = "Add a valid trusted contact above before starting a check-in timer.";
+    checkinStatus.textContent = "Add a valid trusted contact on the Home page before starting a check-in timer.";
     return;
   }
   currentDurationMs = durationMs;
@@ -169,13 +196,15 @@ checkinCancelBtn.addEventListener("click", () => {
   checkinStatus.textContent = "Check-in timer canceled.";
 });
 
-// If a manual SOS or the chat detector already fired an alert while a
-// check-in timer was running, the switch has done its job (help is already
-// on the way) — stop it rather than risk a confusing second auto-fire
-// later. Ignore our own "checkin-timeout" trigger (already handled above)
-// and "canceled" (nothing was actually sent).
-document.addEventListener("safetynet:sos-ended", (e) => {
-  const detail = e.detail || {};
+// If a manual SOS or the chat detector already fired an alert — whether
+// from THIS page or (via sos-engine.js's cross-tab storage-event signal,
+// see its "Cross-page signal" comment) from sos.html/chat.html open in a
+// different tab — while a check-in timer was running, the switch has done
+// its job (help is already on the way). Stop it rather than risk a
+// confusing second auto-fire later. Ignore our own "checkin-timeout"
+// trigger (already handled above) and "canceled" (nothing was actually
+// sent).
+onSosEnded((detail) => {
   if (detail.reason !== "fired" || detail.trigger === "checkin-timeout") return;
   const state = loadCheckinState();
   if (!state) return;
@@ -191,6 +220,9 @@ document.addEventListener("safetynet:sos-ended", (e) => {
 // wasn't open. See the ponytail note above tickInterval for the honest
 // limits of this.
 // ---------------------------------------------------------------------------
+
+renderSosEngineWidget("sos-engine-mount");
+renderContactGate();
 
 (function init() {
   const state = loadCheckinState();

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Safety Net — Chat Check-in</title>
+<meta name="description" content="Type how you're doing. A flagged message always asks before sending an SOS alert.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%9F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="site-nav"></div>
+
+  <div class="app">
+    <header class="page-header">
+      <h1>💬 Chat Check-in</h1>
+      <p class="tagline">
+        Type how you're doing. This runs entirely on your device — nothing
+        you type here is sent anywhere by itself. If your message looks like
+        it might describe a distress situation, Safety Net will ask before
+        sending anything; it never sends an alert without your confirmation.
+      </p>
+    </header>
+
+    <section class="card" id="chat-card" aria-labelledby="chat-heading">
+      <h2 id="chat-heading" class="sr-only">Chat</h2>
+      <p class="disclaimer" id="chat-disclaimer">
+        ⚠️ This is a simple on-device keyword check, not a crisis service or
+        a clinical tool. If you are in immediate physical danger, contact
+        your local emergency number directly the moment you're able to.
+      </p>
+
+      <div id="chat-log" class="chat-log" aria-live="polite"></div>
+
+      <form id="chat-form" novalidate>
+        <label for="chat-input" class="sr-only">Message</label>
+        <input id="chat-input" type="text" maxlength="500" autocomplete="off" placeholder="Type here…">
+        <button id="chat-send-btn" class="btn btn-secondary" type="submit">Send</button>
+      </form>
+    </section>
+
+    <div id="sos-engine-mount"></div>
+
+    <footer class="app-footer">
+      <p>Chat messages are never stored — they exist only in this page's memory for this session and disappear on reload.</p>
+    </footer>
+  </div>
+
+  <script src="nav.js"></script>
+  <script src="contact-store.js"></script>
+  <script src="sos-engine.js"></script>
+  <script src="chat.js"></script>
+  <script>renderNav("chat");</script>
+</body>
+</html>

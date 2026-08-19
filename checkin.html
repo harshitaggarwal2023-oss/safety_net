@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Safety Net — Check-in Timer</title>
+<meta name="description" content="Set a timer before you head out. If you don't check in, Safety Net alerts your trusted contact automatically.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%9F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="site-nav"></div>
+
+  <div class="app">
+    <header class="page-header">
+      <h1>⏱️ Check-in Timer</h1>
+      <p class="tagline">
+        Set a timer before you head out. If you don't tap "I'm safe" before
+        it runs out, Safety Net automatically sends the same SOS alert as
+        the SOS page, to your trusted contact.
+      </p>
+    </header>
+
+    <p id="checkin-contact-gate" class="contact-gate"></p>
+
+    <section class="card" id="checkin-card" aria-labelledby="checkin-heading">
+      <h2 id="checkin-heading" class="sr-only">Check-in timer</h2>
+
+      <form id="checkin-form" novalidate>
+        <label for="checkin-minutes">Check in every</label>
+        <div class="input-with-btn">
+          <input id="checkin-minutes" type="number" min="1" max="180" step="1" value="15" inputmode="numeric">
+          <span class="unit-label">minutes</span>
+          <button id="checkin-start-btn" class="btn btn-primary btn-small" type="submit">Start</button>
+        </div>
+      </form>
+
+      <div class="checkin-active" id="checkin-active-area" hidden>
+        <span id="checkin-indicator" class="tracking-indicator">⏱ Check-in active</span>
+        <p id="checkin-countdown" class="countdown-text" aria-live="polite"></p>
+        <div class="tracking-controls">
+          <button id="checkin-safe-btn" class="btn btn-primary" type="button">I'm safe</button>
+          <button id="checkin-cancel-btn" class="btn btn-cancel" type="button">Cancel check-in</button>
+        </div>
+      </div>
+
+      <p id="checkin-status" class="tracking-status" aria-live="polite"></p>
+    </section>
+
+    <div id="sos-engine-mount"></div>
+
+    <footer class="app-footer">
+      <p>Only one check-in timer can run at a time — starting a new one isn't possible while one is already active (the form is replaced by the active countdown above).</p>
+    </footer>
+  </div>
+
+  <script src="nav.js"></script>
+  <script src="contact-store.js"></script>
+  <script src="sos-engine.js"></script>
+  <script src="checkin.js"></script>
+  <script>renderNav("checkin");</script>
+</body>
+</html>

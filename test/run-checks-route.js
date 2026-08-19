@@ -1,9 +1,6 @@
 const fs = require("fs");
 const { chromium } = require("playwright");
 
-// See test/run-checks.js for why this exists (dev-only self-check tool,
-// not part of the shipped app; not committed with playwright as a real
-// dependency — see HANDOFF.md for how to re-run this).
 function findChromePath() {
   if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) {
     return process.env.CHROME_PATH;
@@ -11,10 +8,7 @@ function findChromePath() {
   try {
     const dir = `${process.env.HOME}/.cache/puppeteer/chrome`;
     const matches = fs.existsSync(dir)
-      ? fs
-          .readdirSync(dir)
-          .map((d) => `${dir}/${d}/chrome-linux64/chrome`)
-          .filter((p) => fs.existsSync(p))
+      ? fs.readdirSync(dir).map((d) => `${dir}/${d}/chrome-linux64/chrome`).filter((p) => fs.existsSync(p))
       : [];
     if (matches.length) return matches[0];
   } catch (_) {
@@ -22,6 +16,8 @@ function findChromePath() {
   }
   return undefined;
 }
+
+const BASE = process.env.SAFETY_NET_URL || "http://localhost:8765";
 
 (async () => {
   const errors = [];
@@ -32,9 +28,7 @@ function findChromePath() {
     args: ["--no-sandbox"],
   });
 
-  const BASE_URL = process.env.SAFETY_NET_URL || "http://localhost:8765/index.html";
-
-  // ---- Test 1: Safe Route Planner — real geocoding + real routing --------
+  // ---- Test 1: Safe Route Planner (route.html) — real geocoding + routing
   {
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -43,14 +37,22 @@ function findChromePath() {
     });
     page.on("pageerror", (err) => pageErrors.push(`[route-planner] ${err.message}`));
 
-    await page.goto(BASE_URL, { waitUntil: "networkidle" });
+    await page.goto(`${BASE}/route.html`, { waitUntil: "networkidle" });
 
     const mapRendered = await page.evaluate(() => !!document.querySelector(".leaflet-container"));
-    console.log("Leaflet map rendered:", mapRendered);
+    console.log("Leaflet map rendered on route.html:", mapRendered);
 
     await page.fill("#route-start", "Ferry Building, San Francisco");
     await page.fill("#route-dest", "Golden Gate Park, San Francisco");
-    await page.click("#find-routes-btn");
+
+    // Double-click / rapid resubmit guard test: click the submit button
+    // twice in immediate succession. If the routeRequestInFlight guard
+    // works, only one set of results/one "Finding routes…" -> final status
+    // transition should happen; console errors would spike if two
+    // overlapping fetches both tried to mutate the DOM/map concurrently
+    // (e.g. duplicate polylines from a race), so we check final state
+    // makes sense and no console errors piled up from a race.
+    await Promise.all([page.click("#find-routes-btn"), page.click("#find-routes-btn")]);
 
     await page.waitForFunction(
       () => {
@@ -68,9 +70,13 @@ function findChromePath() {
     const gotScores = scoreBadges.length > 0;
     console.log("At least one safety score rendered:", gotScores);
 
-    const polylineCount = await page.evaluate(
-      () => document.querySelectorAll("path.leaflet-interactive").length
-    );
+    // Double-click guard: the route-options list should show one clean set
+    // of route entries (1-3), not duplicated entries from two overlapping
+    // requests both rendering.
+    const optionCount = await page.locator(".route-option").count();
+    console.log("Route options count is sane (1-3, not duplicated by the double-click):", optionCount >= 1 && optionCount <= 3);
+
+    const polylineCount = await page.evaluate(() => document.querySelectorAll("path.leaflet-interactive").length);
     console.log("Route polylines drawn on map:", polylineCount);
 
     // XSS attempt via the free-text start field.
@@ -96,11 +102,8 @@ function findChromePath() {
     });
     page.on("pageerror", (err) => pageErrors.push(`[scoring] ${err.message}`));
 
-    await page.goto(BASE_URL, { waitUntil: "networkidle" });
+    await page.goto(`${BASE}/route.html`, { waitUntil: "networkidle" });
 
-    // A short route centered directly on the highest-weight mock zone
-    // (data/mock-incidents.json "Demo zone K", weight 9) should score
-    // noticeably lower than a route far from any zone.
     await page.fill("#route-start", "37.7290, -122.4540");
     await page.fill("#route-dest", "37.7270, -122.4520");
     await page.click("#find-routes-btn");
@@ -119,7 +122,7 @@ function findChromePath() {
     await context.close();
   }
 
-  // ---- Test 3: opt-in route history tracking ------------------------------
+  // ---- Test 3: opt-in route history tracking, now on its own page --------
   {
     const context = await browser.newContext({
       permissions: ["geolocation"],
@@ -131,7 +134,10 @@ function findChromePath() {
     });
     page.on("pageerror", (err) => pageErrors.push(`[tracking] ${err.message}`));
 
-    await page.goto(BASE_URL, { waitUntil: "networkidle" });
+    await page.goto(`${BASE}/history.html`, { waitUntil: "networkidle" });
+
+    const mapRendered = await page.evaluate(() => !!document.querySelector(".leaflet-container"));
+    console.log("Leaflet map rendered on history.html (own instance):", mapRendered);
 
     const startVisibleBefore = await page.locator("#start-tracking-btn").isVisible();
     const stopVisibleBefore = await page.locator("#stop-tracking-btn").isVisible();
@@ -151,16 +157,13 @@ function findChromePath() {
     const indicatorText = await page.locator("#tracking-indicator").textContent();
     console.log("Tracking indicator visible after Start:", indicatorVisibleAfter, "| text:", indicatorText);
 
-    // Move the simulated device a couple of times; watchPosition should log points.
     await context.setGeolocation({ latitude: 37.776, longitude: -122.421 });
     await page.waitForTimeout(700);
     await context.setGeolocation({ latitude: 37.777, longitude: -122.422 });
     await page.waitForTimeout(700);
 
-    const polylinesDuring = await page.evaluate(
-      () => document.querySelectorAll("path.leaflet-interactive").length
-    );
-    console.log("A tracking polyline is drawn on the shared map (>=1):", polylinesDuring >= 1);
+    const polylinesDuring = await page.evaluate(() => document.querySelectorAll("path.leaflet-interactive").length);
+    console.log("A tracking polyline is drawn on the map (>=1):", polylinesDuring >= 1);
 
     await page.click("#stop-tracking-btn");
     await page.waitForTimeout(300);
@@ -189,46 +192,64 @@ function findChromePath() {
     await context.close();
   }
 
-  // ---- Test 4: SOS cancel auto-stops an active tracking session ----------
+  // ---- Test 4: SOS (fired from sos.html) auto-stops tracking on
+  // history.html — the cross-tab signal test. This is the key regression
+  // check for the multi-page split: in the old single-page app this was a
+  // same-document CustomEvent; now it MUST cross a tab boundary via
+  // localStorage's `storage` event (see sos-engine.js's broadcastSosEnded).
   {
     const context = await browser.newContext({
       permissions: ["geolocation"],
       geolocation: { latitude: 37.7749, longitude: -122.4194 },
     });
-    const page = await context.newPage();
-    page.on("console", (msg) => {
-      if (msg.type() === "error") errors.push(`[sos-autostop] ${msg.text()}`);
+
+    // Set up a valid contact first (shared localStorage across pages/tabs
+    // in the same context).
+    const setupPage = await context.newPage();
+    await setupPage.goto(`${BASE}/index.html`);
+    await setupPage.fill("#contact-name", "Test Contact");
+    await setupPage.fill("#contact-email", "test@example.com");
+    await setupPage.click("#contact-form button[type=submit]");
+    await setupPage.close();
+
+    const historyPage = await context.newPage();
+    historyPage.on("console", (msg) => {
+      if (msg.type() === "error") errors.push(`[sos-autostop:history] ${msg.text()}`);
     });
-    page.on("pageerror", (err) => pageErrors.push(`[sos-autostop] ${err.message}`));
+    historyPage.on("pageerror", (err) => pageErrors.push(`[sos-autostop:history] ${err.message}`));
+    await historyPage.goto(`${BASE}/history.html`, { waitUntil: "networkidle" });
+    await historyPage.click("#start-tracking-btn");
+    await historyPage.waitForTimeout(500);
+    const trackingOnBeforeSos = await historyPage.locator("#tracking-indicator").isVisible();
 
-    await page.goto(BASE_URL, { waitUntil: "networkidle" });
+    // Fire SOS from a SEPARATE page/tab (sos.html) in the same browser
+    // context, simulating the real multi-page/multi-tab scenario.
+    const sosPage = await context.newPage();
+    sosPage.on("console", (msg) => {
+      if (msg.type() === "error") errors.push(`[sos-autostop:sos] ${msg.text()}`);
+    });
+    sosPage.on("pageerror", (err) => pageErrors.push(`[sos-autostop:sos] ${err.message}`));
+    await sosPage.goto(`${BASE}/sos.html`);
+    await sosPage.click("#sos-btn");
+    await sosPage.click("#sos-btn");
+    await sosPage.waitForSelector("#countdown-area:not([hidden])", { timeout: 2000 });
+    await sosPage.click("#cancel-btn");
+    await sosPage.waitForTimeout(700); // allow the storage event to propagate to the other tab
 
-    await page.fill("#contact-name", "Test Contact");
-    await page.fill("#contact-email", "test@example.com");
-    await page.click("#contact-form button[type=submit]");
-
-    await page.click("#start-tracking-btn");
-    await page.waitForTimeout(500);
-    const trackingOnBeforeSos = await page.locator("#tracking-indicator").isVisible();
-
-    await page.click("#sos-btn");
-    await page.click("#sos-btn"); // double-tap arm
-    await page.waitForSelector("#countdown-area:not([hidden])", { timeout: 2000 });
-    await page.click("#cancel-btn");
-    await page.waitForTimeout(500);
-
-    const trackingOnAfterCancel = await page.locator("#tracking-indicator").isVisible();
+    const trackingOnAfterCancel = await historyPage.locator("#tracking-indicator").isVisible();
     console.log(
-      "Tracking was ON before SOS, auto-stopped after SOS canceled:",
+      "Tracking was ON in one tab, auto-stopped after SOS canceled in a DIFFERENT tab (cross-tab signal works):",
       trackingOnBeforeSos === true && trackingOnAfterCancel === false
     );
 
+    await sosPage.close();
+    await historyPage.close();
     await context.close();
   }
 
   await browser.close();
 
-  console.log("\n=== console.error / pageerror summary (Phase 2) ===");
+  console.log("\n=== console.error / pageerror summary (route + history) ===");
   console.log("console.error count:", errors.length, errors);
   console.log("pageerror count:", pageErrors.length, pageErrors);
 

@@ -1,0 +1,6 @@
+{
+  "name": "safety-net",
+  "private": true,
+  "type": "commonjs",
+  "description": "Static, dependency-free web app. This package.json exists only to override the parent sandbox project's \"type\": \"module\" setting so the CommonJS dev/self-check scripts in test/ (require()) run correctly with plain `node`. It is not a build dependency of the app itself — see HANDOFF.md/README.md: no npm install is needed to run Safety Net."
+}
