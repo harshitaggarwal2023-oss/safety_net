@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Safety Net — SOS Alert</title>
+<meta name="description" content="One-tap SOS alert with live location, for students and anyone commuting or living alone.">
+<!-- Inline data-URI favicon: avoids a 404 console error, no extra file/bytes in the repo. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%9F%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+
+<!-- Leaflet — loaded from CDN (unpkg) so no map SDK binaries or tile caches
+     are ever committed to the repo. No API key required: tiles come from
+     the free OpenStreetMap tile server, routing from the free OSRM demo
+     server, geocoding from the free Nominatim demo server. -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+
+<!--
+  OPTIONAL real-send upgrade: uncomment the line below AFTER creating
+  env.js from env.js.example (env.js is gitignored, keep real keys out of git).
+  Left commented by default so a missing env.js never causes a 404.
+  <script src="env.js"></script>
+-->
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1>🛟 Safety Net</h1>
+      <p class="tagline">One-tap SOS for commutes, walks home, and unfamiliar places.</p>
+    </header>
+
+    <!-- Trusted contact setup -->
+    <section class="card" id="contact-card" aria-labelledby="contact-heading">
+      <h2 id="contact-heading">Trusted contact</h2>
+      <p class="hint">Who should we alert? Add at least an email or a phone number.</p>
+      <form id="contact-form" novalidate>
+        <label for="contact-name">Name</label>
+        <input id="contact-name" name="name" type="text" autocomplete="name" maxlength="80" required>
+
+        <label for="contact-email">Email</label>
+        <input id="contact-email" name="email" type="email" autocomplete="email" maxlength="120" placeholder="e.g. mom@example.com">
+        <p class="field-error" id="email-error" role="alert" hidden></p>
+
+        <label for="contact-phone">Phone</label>
+        <input id="contact-phone" name="phone" type="tel" autocomplete="tel" maxlength="30" placeholder="e.g. +1 555 123 4567">
+        <p class="field-error" id="phone-error" role="alert" hidden></p>
+
+        <button type="submit" class="btn btn-secondary">Save trusted contact</button>
+      </form>
+      <p id="contact-status" class="contact-status" aria-live="polite"></p>
+    </section>
+
+    <!-- SOS panel -->
+    <section class="card sos-card" aria-labelledby="sos-heading">
+      <h2 id="sos-heading">SOS</h2>
+      <p class="hint">Press and hold the button, or double-tap it, to arm. You'll get a 5-second countdown you can cancel before anything is sent.</p>
+      <p class="hint hint-small">When it fires, Safety Net asks your browser for your live location to include in the alert. If you say no, you can type your location in instead.</p>
+
+      <div class="sos-wrap">
+        <button id="sos-btn" class="sos-btn" type="button" aria-pressed="false">
+          <span id="sos-btn-label">SOS</span>
+        </button>
+      </div>
+
+      <div id="countdown-area" class="countdown-area" hidden>
+        <p id="countdown-text" class="countdown-text" aria-live="assertive">Sending SOS in 5s</p>
+        <button id="cancel-btn" class="btn btn-cancel" type="button">Cancel</button>
+      </div>
+
+      <p id="sos-status" class="sos-status" aria-live="polite"></p>
+    </section>
+
+    <!-- Manual location fallback -->
+    <section class="card" id="manual-location-card" hidden aria-labelledby="manual-location-heading">
+      <h2 id="manual-location-heading">Location access denied or unavailable</h2>
+      <p class="hint">No problem — describe where you are and we'll include that in the alert instead.</p>
+      <form id="manual-location-form" novalidate>
+        <label for="manual-location-input">Your location</label>
+        <input id="manual-location-input" type="text" maxlength="200" placeholder="e.g. Near 5th & Main, outside the coffee shop" required>
+        <button type="submit" class="btn btn-primary">Send SOS with this location</button>
+      </form>
+    </section>
+
+    <!-- Message preview / manual fallback send -->
+    <section class="card" id="message-card" hidden aria-labelledby="message-heading">
+      <h2 id="message-heading">Alert message</h2>
+      <p class="hint">This is the alert. If the automatic send didn't open your mail/messaging app, copy it and send it yourself.</p>
+      <pre id="message-preview" class="message-preview"></pre>
+      <button id="copy-btn" class="btn btn-secondary" type="button">Copy message</button>
+      <p id="copy-status" class="copy-status" aria-live="polite"></p>
+    </section>
+
+    <!-- Safe Route Planner -->
+    <section class="card" id="route-card" aria-labelledby="route-heading">
+      <h2 id="route-heading">Safe route planner</h2>
+      <p class="hint">
+        Pick a start and destination to see 2-3 walking routes with a demo
+        safety score. Map data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors —
+        routing via the public OSRM demo server, no API key required.
+      </p>
+      <p class="disclaimer" id="score-disclaimer">
+        ⚠️ Safety scores here are a <strong>demo scoring model</strong> (time-of-day
+        + a small hand-authored mock incident file), <strong>not real crime data</strong>.
+        Do not rely on this for real safety decisions.
+      </p>
+
+      <form id="route-form" novalidate>
+        <label for="route-start">Start</label>
+        <div class="input-with-btn">
+          <input id="route-start" type="text" maxlength="200" autocomplete="off" placeholder="e.g. Ferry Building, San Francisco">
+          <button id="use-my-location-btn" class="btn btn-secondary btn-small" type="button">Use my location</button>
+        </div>
+
+        <label for="route-dest">Destination</label>
+        <input id="route-dest" type="text" maxlength="200" autocomplete="off" placeholder="e.g. Golden Gate Park">
+
+        <button id="find-routes-btn" class="btn btn-primary" type="submit">Find routes</button>
+      </form>
+      <p id="route-status" class="route-status" aria-live="polite"></p>
+
+      <div id="map" class="leaflet-map" role="img" aria-label="Map showing route options and, if tracking is on, your current route"></div>
+
+      <ul id="route-options" class="route-options" hidden></ul>
+
+      <hr class="section-divider">
+
+      <h3 id="tracking-heading">Route history (opt-in)</h3>
+      <p class="hint">
+        Off by default. Only turn this on if you want Safety Net to log your
+        path on this device while you walk. Nothing here is ever sent
+        anywhere automatically — history stays in this browser unless you
+        tap Export. Turning it on does not change what an SOS alert sends:
+        SOS always only shares your live location at the moment it fires,
+        never this history.
+      </p>
+
+      <div class="tracking-controls">
+        <button id="start-tracking-btn" class="btn btn-primary" type="button">Start tracking</button>
+        <button id="stop-tracking-btn" class="btn btn-cancel" type="button" hidden>Stop tracking</button>
+        <span id="tracking-indicator" class="tracking-indicator" hidden aria-live="assertive">🔴 Tracking is ON</span>
+      </div>
+
+      <div class="tracking-controls tracking-controls-secondary">
+        <button id="export-history-btn" class="btn btn-secondary btn-small" type="button">Export route history</button>
+        <button id="clear-history-btn" class="btn btn-secondary btn-small" type="button">Clear route history</button>
+      </div>
+
+      <p id="tracking-status" class="tracking-status" aria-live="polite"></p>
+    </section>
+
+    <!-- Check-in / dead-man's switch -->
+    <section class="card" id="checkin-card" aria-labelledby="checkin-heading">
+      <h2 id="checkin-heading">Check-in timer</h2>
+      <p class="hint">
+        Set a timer before you head out. If you don't tap "I'm safe" before
+        it runs out, Safety Net automatically sends the same SOS alert as
+        the SOS button above, to your trusted contact.
+      </p>
+
+      <form id="checkin-form" novalidate>
+        <label for="checkin-minutes">Check in every</label>
+        <div class="input-with-btn">
+          <input id="checkin-minutes" type="number" min="1" max="180" step="1" value="15" inputmode="numeric">
+          <span class="unit-label">minutes</span>
+          <button id="checkin-start-btn" class="btn btn-primary btn-small" type="submit">Start</button>
+        </div>
+      </form>
+
+      <div class="checkin-active" id="checkin-active-area" hidden>
+        <span id="checkin-indicator" class="tracking-indicator">⏱ Check-in active</span>
+        <p id="checkin-countdown" class="countdown-text" aria-live="polite"></p>
+        <div class="tracking-controls">
+          <button id="checkin-safe-btn" class="btn btn-primary" type="button">I'm safe</button>
+          <button id="checkin-cancel-btn" class="btn btn-cancel" type="button">Cancel check-in</button>
+        </div>
+      </div>
+
+      <p id="checkin-status" class="tracking-status" aria-live="polite"></p>
+    </section>
+
+    <!-- Chat distress detector -->
+    <section class="card" id="chat-card" aria-labelledby="chat-heading">
+      <h2 id="chat-heading">Chat check-in</h2>
+      <p class="hint">
+        Type how you're doing. This runs entirely on your device — nothing
+        you type here is sent anywhere by itself. If your message looks like
+        it might describe a distress situation, Safety Net will ask before
+        sending anything; it never sends an alert without your confirmation.
+      </p>
+      <p class="disclaimer" id="chat-disclaimer">
+        ⚠️ This is a simple on-device keyword check, not a crisis service or
+        a clinical tool. If you are in immediate physical danger, contact
+        your local emergency number directly the moment you're able to.
+      </p>
+
+      <div id="chat-log" class="chat-log" aria-live="polite"></div>
+
+      <form id="chat-form" novalidate>
+        <label for="chat-input" class="sr-only">Message</label>
+        <input id="chat-input" type="text" maxlength="500" autocomplete="off" placeholder="Type here…">
+        <button id="chat-send-btn" class="btn btn-secondary" type="submit">Send</button>
+      </form>
+    </section>
+
+    <footer class="app-footer">
+      <p>Safety Net — Phase 1 (SOS Alert) + Phase 2 (Safe Route Planner &amp; opt-in route history). Nothing is sent anywhere except to the contact you set above, and only when you trigger SOS.</p>
+    </footer>
+  </div>
+
+  <!-- Leaflet JS — loaded from CDN, not vendored into the repo (see note near the CSS link in <head>). -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="app.js"></script>
+  <script src="route.js"></script>
+  <script src="checkin.js"></script>
+  <script src="chat.js"></script>
+</body>
+</html>

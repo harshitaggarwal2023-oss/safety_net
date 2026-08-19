@@ -1,0 +1,27 @@
+{
+  "_disclaimer": "DEMO DATA ONLY. These are hand-authored, fictional risk zones for hackathon demo purposes. They are NOT real crime statistics and are NOT sourced from any police department, news reports, or incident database. Coordinates sit in the San Francisco, CA area only so the Safe Route Planner has something to visibly react to when demoing routes there — routes anywhere else in the world will simply get a neutral baseline score. See HANDOFF.md and the safety-score disclaimer shown in the app UI.",
+  "_schema": {
+    "lat": "latitude, decimal degrees",
+    "lng": "longitude, decimal degrees",
+    "radius_m": "radius of influence in meters — points on a route within this distance are affected, with linear falloff to 0 at the edge",
+    "weight": "relative severity, 1 (low) to 10 (high), entirely made up for this demo",
+    "label": "short fictional label shown in route-score breakdowns, never a real location claim"
+  },
+  "zones": [
+    { "lat": 37.7793, "lng": -122.4193, "radius_m": 350, "weight": 7, "label": "Demo zone A (fictional)" },
+    { "lat": 37.7835, "lng": -122.4089, "radius_m": 250, "weight": 5, "label": "Demo zone B (fictional)" },
+    { "lat": 37.7712, "lng": -122.4136, "radius_m": 300, "weight": 6, "label": "Demo zone C (fictional)" },
+    { "lat": 37.7599, "lng": -122.4148, "radius_m": 400, "weight": 8, "label": "Demo zone D (fictional)" },
+    { "lat": 37.7929, "lng": -122.4074, "radius_m": 200, "weight": 4, "label": "Demo zone E (fictional)" },
+    { "lat": 37.7695, "lng": -122.4529, "radius_m": 300, "weight": 3, "label": "Demo zone F (fictional)" },
+    { "lat": 37.8028, "lng": -122.4361, "radius_m": 250, "weight": 5, "label": "Demo zone G (fictional)" },
+    { "lat": 37.7407, "lng": -122.4326, "radius_m": 350, "weight": 6, "label": "Demo zone H (fictional)" },
+    { "lat": 37.7857, "lng": -122.4310, "radius_m": 200, "weight": 3, "label": "Demo zone I (fictional)" },
+    { "lat": 37.7503, "lng": -122.4159, "radius_m": 300, "weight": 7, "label": "Demo zone J (fictional)" },
+    { "lat": 37.7280, "lng": -122.4530, "radius_m": 400, "weight": 9, "label": "Demo zone K (fictional)" },
+    { "lat": 37.8060, "lng": -122.4103, "radius_m": 200, "weight": 4, "label": "Demo zone L (fictional)" },
+    { "lat": 37.7649, "lng": -122.4194, "radius_m": 250, "weight": 5, "label": "Demo zone M (fictional)" },
+    { "lat": 37.7180, "lng": -122.4460, "radius_m": 350, "weight": 6, "label": "Demo zone N (fictional)" },
+    { "lat": 37.7963, "lng": -122.3956, "radius_m": 250, "weight": 4, "label": "Demo zone O (fictional)" }
+  ]
+}

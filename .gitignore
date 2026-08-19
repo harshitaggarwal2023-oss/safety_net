@@ -1,0 +1,12 @@
+# Secrets — never commit real config
+.env
+env.js
+
+# OS / editor cruft
+.DS_Store
+*.log
+node_modules/
+
+# Future phases: never commit tile caches or large binaries (see HANDOFF.md)
+*.mbtiles
+tile-cache/
