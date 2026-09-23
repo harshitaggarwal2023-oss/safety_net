@@ -235,6 +235,125 @@ function updatePoiVisibility() {
   });
 }
 
+const startSuggestions = document.getElementById("start-suggestions");
+const destSuggestions = document.getElementById("dest-suggestions");
+const destChips = document.getElementById("dest-chips");
+
+let startDebounceTimer = null;
+let destDebounceTimer = null;
+
+async function fetchSuggestions(query, listEl, inputEl, isStart) {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) {
+    listEl.innerHTML = "";
+    listEl.hidden = true;
+    return;
+  }
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=in&q=${encodeURIComponent(trimmed)}`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const items = await res.json();
+
+    listEl.innerHTML = "";
+    if (!Array.isArray(items) || items.length === 0) {
+      listEl.hidden = true;
+      return;
+    }
+
+    items.forEach((item) => {
+      const li = document.createElement("li");
+      li.className = "suggestion-item";
+
+      const icon = document.createElement("span");
+      icon.className = "suggestion-icon";
+      icon.textContent = "📍";
+
+      const textWrap = document.createElement("div");
+      textWrap.className = "suggestion-text";
+
+      const parts = (item.display_name || "").split(",");
+      const primary = document.createElement("strong");
+      primary.textContent = parts[0] || item.display_name;
+
+      const secondary = document.createElement("small");
+      secondary.textContent = parts.slice(1, 4).join(",").trim();
+
+      textWrap.append(primary, secondary);
+      li.append(icon, textWrap);
+
+      li.addEventListener("click", () => {
+        const fullLabel = item.display_name;
+        inputEl.value = parts.slice(0, 3).join(",").trim();
+        listEl.innerHTML = "";
+        listEl.hidden = true;
+
+        const coords = {
+          lat: parseFloat(item.lat),
+          lng: parseFloat(item.lon),
+          label: fullLabel,
+        };
+
+        if (isStart) {
+          lastStartCoord = coords;
+        } else {
+          lastDestCoord = coords;
+        }
+
+        if (lastStartCoord && lastDestCoord) {
+          planRoutes(lastStartCoord, lastDestCoord);
+        }
+      });
+
+      listEl.appendChild(li);
+    });
+
+    listEl.hidden = false;
+  } catch (err) {
+    console.warn("Safety Net: error fetching autocomplete suggestions", err);
+    listEl.hidden = true;
+  }
+}
+
+routeStartInput.addEventListener("input", (e) => {
+  clearTimeout(startDebounceTimer);
+  startDebounceTimer = setTimeout(() => {
+    fetchSuggestions(e.target.value, startSuggestions, routeStartInput, true);
+  }, 250);
+});
+
+routeDestInput.addEventListener("input", (e) => {
+  clearTimeout(destDebounceTimer);
+  destDebounceTimer = setTimeout(() => {
+    fetchSuggestions(e.target.value, destSuggestions, routeDestInput, false);
+  }, 250);
+});
+
+// Hide dropdowns when clicking outside
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".autocomplete-wrapper")) {
+    if (startSuggestions) startSuggestions.hidden = true;
+    if (destSuggestions) destSuggestions.hidden = true;
+  }
+});
+
+// Quick Recommendation Chips
+if (destChips) {
+  destChips.addEventListener("click", (e) => {
+    const chip = e.target.closest(".rec-chip");
+    if (!chip) return;
+    const dest = chip.dataset.dest;
+    if (!dest) return;
+
+    routeDestInput.value = dest;
+    if (!routeStartInput.value.trim()) {
+      routeStartInput.value = "Connaught Place, New Delhi";
+    }
+    routeForm.requestSubmit();
+  });
+}
+
 function clearRouteLayers() {
   routeLayers.forEach((l) => map.removeLayer(l));
   routeMarkers.forEach((m) => map.removeLayer(m));

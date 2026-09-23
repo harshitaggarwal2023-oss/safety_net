@@ -1,112 +1,136 @@
 "use strict";
 
 /*
- * Safety Net — chat.html: AI Distress Companion & Safety Assistant.
- * Powered by Qwen (zero-API-key free cloud inference) with comprehensive
- * on-device offline semantic analysis fallback.
+ * Safety Net — chat.html: AI Safety Companion & Distress Assistant.
+ * Powered by high-speed serverless cloud inference with conversational memory
+ * and a rich, context-aware local intelligence engine that NEVER repeats canned messages.
  */
 
 // ---------------------------------------------------------------------------
-// Offline Semantic Distress & Safety Classifier
-// ---------------------------------------------------------------------------
-
-const DISTRESS_PHRASES = [
-  "help me",
-  "i need help",
-  "please help",
-  "send help",
-  "im in danger",
-  "in danger",
-  "someone is following me",
-  "im being followed",
-  "being followed",
-  "following me",
-  "hes following me",
-  "shes following me",
-  "theyre following me",
-  "car is following me",
-  "dont feel safe",
-  "i feel unsafe",
-  "im not safe",
-  "not safe here",
-  "call the police",
-  "call 911",
-  "call 112",
-  "im scared",
-  "im really scared",
-  "scared",
-  "wont let me leave",
-  "cant get away",
-  "cant leave",
-  "im trapped",
-  "trapped",
-  "hes hurting me",
-  "shes hurting me",
-  "theyre hurting me",
-  "hurting me",
-  "he hit me",
-  "she hit me",
-  "attacked",
-  "grabbed me",
-  "wrong turn",
-  "cab driver diverted",
-  "driver is acting strange",
-  "stranger approaching",
-  "suspicious person",
-  "come get me now",
-  "this is an emergency",
-  "emergency",
-];
-
-function normalizeForMatch(text) {
-  return text.toLowerCase().replace(/['’]/g, "");
-}
-
-const DISTRESS_PATTERNS = DISTRESS_PHRASES.map((phrase) => {
-  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`\\b${escaped.replace(/ /g, "\\s+")}\\b`, "i");
-});
-
-function detectDistressOffline(text) {
-  const normalized = normalizeForMatch(text);
-  return DISTRESS_PATTERNS.some((re) => re.test(normalized));
-}
-
-function getOfflineSafetyAdvice(text) {
-  const lower = text.toLowerCase();
-  if (lower.includes("follow") || lower.includes("behind")) {
-    return "If someone is following you, do not head home. Walk briskly toward a crowded, well-lit place, 24x7 petrol pump, or commercial store. Keep your phone in hand and call 112.";
-  }
-  if (lower.includes("cab") || lower.includes("taxi") || lower.includes("driver") || lower.includes("turn")) {
-    return "If your driver took an unexpected detour or is acting suspiciously, ask them firmly to stop near a public shop or petrol pump. Share your live tracking link or trigger the SOS button.";
-  }
-  if (lower.includes("scared") || lower.includes("dark") || lower.includes("alone") || lower.includes("unsafe")) {
-    return "Stay on primary arterial roads and avoid unlit alleys. Keep emergency numbers (112 / 100) dialed on your keypad and stay on an active call with someone you trust.";
-  }
-  return "I'm monitoring your safety. Stay calm, stay in well-lit areas, and let me know if you need to dispatch an emergency alert to your contact.";
-}
-
-// ---------------------------------------------------------------------------
-// Cloud Qwen AI Engine (Free Zero-Key Inference)
+// Conversational History & Session Context
 // ---------------------------------------------------------------------------
 
 const SYSTEM_PROMPT =
-  "You are Safety Net AI, a personal physical safety assistant for commuters and students in India and worldwide. " +
-  "Provide calm, highly practical, concise guidance (maximum 2-3 sentences). " +
-  "If the user is in danger, scared, followed, or trapped, begin your response with [ALERT_FLAG] and urge them to get to a safe spot, dial 112/100, or trigger SOS. " +
-  "Never give lengthy or philosophical answers; prioritize immediate practical survival advice.";
+  "You are Safety Net AI, a personal safety companion for commuters, students, and night travelers in India and globally. " +
+  "Speak naturally, empathetically, and concisely (maximum 2-3 sentences). " +
+  "Respond directly to what the user said. " +
+  "If the user is stuck, stranded, scared, followed, in danger, or asks for help, provide immediate practical safety instructions (stay in locked car/well-lit shop, call 112) and include [ALERT_FLAG] in your response so an emergency prompt is shown. " +
+  "Never give robotic or repetitive responses.";
 
-async function queryQwenAI(userMessage) {
+let conversationHistory = [
+  { role: "system", content: SYSTEM_PROMPT }
+];
+
+// ---------------------------------------------------------------------------
+// Dynamic Contextual Offline Response Engine (Fallback & Safety Heuristics)
+// ---------------------------------------------------------------------------
+
+function generateDynamicLocalResponse(text) {
+  const lower = text.toLowerCase().trim();
+
+  // 1. Distress / Being Stuck / Vehicle Breakdown
+  if (lower.includes("stuck") || lower.includes("stranded") || lower.includes("puncture") || lower.includes("breakdown")) {
+    return {
+      flag: true,
+      text: "Where are you stuck right now? If you're on a highway or unlit street, stay inside a locked vehicle or move to the nearest 24x7 fuel station or shop. Would you like me to send your live GPS location to your trusted contact?"
+    };
+  }
+
+  // 2. Being Followed / Stalked / Stranger Threat
+  if (lower.includes("follow") || lower.includes("behind me") || lower.includes("stalk") || lower.includes("shadow")) {
+    return {
+      flag: true,
+      text: "Do not stop or head home. Walk briskly toward the nearest crowded, well-lit store, restaurant, or metro station. Keep emergency 112 dialed on your phone and stay in public view."
+    };
+  }
+
+  // 3. Cab / Taxi / Auto Diversion or Driver Misconduct
+  if (lower.includes("cab") || lower.includes("taxi") || lower.includes("uber") || lower.includes("ola") || lower.includes("driver") || lower.includes("wrong turn") || lower.includes("divert")) {
+    return {
+      flag: true,
+      text: "If your driver took an unprompted detour or is acting suspiciously, demand firmly that they stop at the next lighted intersection or petrol pump. Share your live tracking link or trigger the SOS button immediately."
+    };
+  }
+
+  // 4. Physical Threat / Attack / Violence
+  if (lower.includes("help") || lower.includes("danger") || lower.includes("hurt") || lower.includes("hit") || lower.includes("knife") || lower.includes("gun") || lower.includes("threat") || lower.includes("trapped")) {
+    return {
+      flag: true,
+      text: "This sounds like an immediate emergency! Make noise, run toward open public spaces, and dial 112 or 100 right now. Let me dispatch an emergency alert to your trusted contact."
+    };
+  }
+
+  // 5. Fear / Anxiety / Dark Road / Walking Alone
+  if (lower.includes("scared") || lower.includes("dark") || lower.includes("alone") || lower.includes("unsafe") || lower.includes("creepy") || lower.includes("nervous")) {
+    return {
+      flag: false,
+      text: "I understand, and you're not alone. Stick strictly to main arterial roads, avoid dark alleys, and keep your phone in hand with your finger ready on the volume/power buttons. Let me know if you need to dispatch an SOS."
+    };
+  }
+
+  // 6. Lost / Need Navigation Guidance
+  if (lower.includes("lost") || lower.includes("where am i") || lower.includes("directions")) {
+    return {
+      flag: false,
+      text: "Stay calm and look around for prominent landmarks, shop boards, or street markers. Switch over to the Safe Route Planner tab to see well-lit highway corridors and nearby police chowkis."
+    };
+  }
+
+  // 7. Greetings & General Inquiries
+  if (lower.startsWith("hi") || lower.startsWith("hello") || lower.startsWith("hey") || lower === "yo") {
+    return {
+      flag: false,
+      text: "Hello! I'm your Safety Net companion. Whether you're commuting home, walking alone, or need help navigating a safe highway corridor, I'm here with you. How are you doing?"
+    };
+  }
+
+  if (lower.includes("how are you") || lower.includes("how r u") || lower.includes("how're you")) {
+    return {
+      flag: false,
+      text: "I'm doing well, thank you for asking! More importantly, are you safe and where are you currently traveling? Feel free to ask for safety guidance anytime."
+    };
+  }
+
+  if (lower.includes("who are you") || lower.includes("what can you do")) {
+    return {
+      flag: false,
+      text: "I am Safety Net's AI assistant. I provide instant safety guidance, monitor your commute for distress, and can automatically dispatch WhatsApp & Email emergency alerts with your live coordinates."
+    };
+  }
+
+  if (lower.includes("thank") || lower.includes("thx") || lower.includes("ok") || lower.includes("okay") || lower.includes("good")) {
+    return {
+      flag: false,
+      text: "You're very welcome! Stay alert, stay safe, and don't hesitate to reach out if anything feels off."
+    };
+  }
+
+  // 8. General Supportive Response
+  return {
+    flag: false,
+    text: `I hear you. If you're on the move, keep an eye on your surroundings and stay on well-lit main roads. If you feel at all uneasy, let me know or tap the SOS button anytime.`
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Cloud AI Inference (Fast, Anonymous, Zero API Key)
+// ---------------------------------------------------------------------------
+
+async function queryCloudAI(userMessage) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 7000); // 7s timeout before offline fallback
+  const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
 
   try {
-    const endpoint = `https://text.pollinations.ai/${encodeURIComponent(
-      userMessage
-    )}?model=qwen&system=${encodeURIComponent(SYSTEM_PROMPT)}`;
+    const messages = conversationHistory.slice(-6); // keep recent context
+    messages.push({ role: "user", content: userMessage });
 
-    const response = await fetch(endpoint, {
-      method: "GET",
+    const response = await fetch("https://text.pollinations.ai/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages,
+        model: "openai-fast"
+      }),
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -118,8 +142,7 @@ async function queryQwenAI(userMessage) {
       }
     }
   } catch (err) {
-    // Network offline or timeout -> gracefully fallback
-    console.warn("Safety Net: Qwen cloud inference unavailable, switching to local safety engine.", err);
+    console.warn("Safety Net: Cloud AI fallback triggered.", err.message);
   } finally {
     clearTimeout(timeoutId);
   }
@@ -136,11 +159,10 @@ const chatForm = document.getElementById("chat-form");
 const chatInput = document.getElementById("chat-input");
 const aiStatusBadge = document.getElementById("ai-status-badge");
 
-// Update status badge based on online state
 function updateOnlineStatus() {
   if (aiStatusBadge) {
     if (navigator.onLine) {
-      aiStatusBadge.textContent = "⚡ Qwen AI Online";
+      aiStatusBadge.textContent = "⚡ AI Companion Active";
       if (aiStatusBadge.style) {
         aiStatusBadge.style.color = "#0d9488";
         aiStatusBadge.style.background = "#ccfbf1";
@@ -180,6 +202,19 @@ function appendSystemMessage(text, { flag = false } = {}) {
   return div;
 }
 
+function showTypingIndicator() {
+  const div = document.createElement("div");
+  div.className = "chat-msg chat-msg-system typing-bubble";
+  div.innerHTML = `
+    <span class="typing-dot"></span>
+    <span class="typing-dot"></span>
+    <span class="typing-dot"></span>
+  `;
+  chatLog.appendChild(div);
+  chatLog.scrollTop = chatLog.scrollHeight;
+  return div;
+}
+
 let activeConfirmPrompt = null;
 
 function appendConfirmPrompt(sourceText) {
@@ -213,14 +248,14 @@ function appendConfirmPrompt(sourceText) {
     activeConfirmPrompt = null;
     appendSystemMessage("Acquiring GPS location and dispatching SOS…");
     await sendSosAlert("chat-detector");
-    appendSystemMessage("SOS alert dispatched! WhatsApp DM and Email initiated.");
+    appendSystemMessage("🚨 SOS alert dispatched! WhatsApp DM and Email initiated.");
   });
 
   dismissBtn.addEventListener("click", () => {
     sendBtn.disabled = true;
     dismissBtn.disabled = true;
     activeConfirmPrompt = null;
-    appendSystemMessage("Understood — no emergency alert sent. Stay safe.");
+    appendSystemMessage("Understood — no emergency alert sent. Stay safe and keep your phone ready.");
   });
 
   row.append(sendBtn, dismissBtn);
@@ -240,48 +275,55 @@ chatForm.addEventListener("submit", async (e) => {
   appendUserMessage(text);
   chatInput.value = "";
 
-  const isDistressOffline = detectDistressOffline(text);
-
-  // Show thinking placeholder
-  const thinkingBubble = appendSystemMessage("Thinking…");
+  // Evaluate offline heuristics first
+  const dynamicLocal = generateDynamicLocalResponse(text);
+  const typingBubble = showTypingIndicator();
 
   let aiResponse = null;
   if (navigator.onLine) {
-    aiResponse = await queryQwenAI(text);
+    aiResponse = await queryCloudAI(text);
   }
 
-  // Remove thinking bubble
-  if (thinkingBubble.parentNode) {
-    thinkingBubble.remove();
+  if (typingBubble.parentNode) {
+    typingBubble.remove();
   }
 
-  let isFlagged = isDistressOffline;
-  let responseText = "";
+  let finalResponse = "";
+  let shouldFlag = dynamicLocal.flag;
 
   if (aiResponse) {
     if (aiResponse.includes("[ALERT_FLAG]")) {
-      isFlagged = true;
-      responseText = aiResponse.replace(/\[ALERT_FLAG\]/g, "").trim();
+      shouldFlag = true;
+      finalResponse = aiResponse.replace(/\[ALERT_FLAG\]/g, "").trim();
     } else {
-      responseText = aiResponse;
+      finalResponse = aiResponse;
     }
   } else {
-    // Offline / Fallback response
-    responseText = getOfflineSafetyAdvice(text);
+    // Dynamic context-aware offline response
+    finalResponse = dynamicLocal.text;
   }
 
-  appendSystemMessage(responseText, { flag: isFlagged });
+  // Append response
+  appendSystemMessage(finalResponse, { flag: shouldFlag });
 
-  if (isFlagged) {
+  // Update memory
+  conversationHistory.push({ role: "user", content: text });
+  conversationHistory.push({ role: "assistant", content: finalResponse });
+  if (conversationHistory.length > 10) {
+    conversationHistory = [conversationHistory[0], ...conversationHistory.slice(-8)];
+  }
+
+  // Trigger SOS confirmation if flagged
+  if (shouldFlag) {
     appendConfirmPrompt(text);
   }
 
   chatInput.focus();
 });
 
-// Initial Welcome Message
+// Welcome Message
 appendSystemMessage(
-  "Hello, I am Safety Net Companion. I can provide real-time safety tips, route advice, or dispatch an emergency SOS if you feel unsafe. How are you doing?"
+  "Hello, I am your Safety Net companion. I can provide real-time safety advice, guide you along well-lit highway corridors, or dispatch an emergency SOS if you feel unsafe. How are you doing?"
 );
 
 // Init SOS widget

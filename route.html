@@ -45,15 +45,31 @@
 
       <form id="route-form" novalidate>
         <label for="route-start">Start Location</label>
-        <div class="input-with-btn">
+        <div class="input-with-btn autocomplete-wrapper">
           <input id="route-start" type="text" maxlength="200" autocomplete="off" placeholder="e.g. Connaught Place, New Delhi">
           <button id="use-my-location-btn" class="btn btn-secondary btn-small" type="button">Use my location</button>
+          <ul id="start-suggestions" class="suggestions-dropdown" hidden></ul>
         </div>
 
         <label for="route-dest">Destination</label>
-        <input id="route-dest" type="text" maxlength="200" autocomplete="off" placeholder="e.g. Cyber City, Gurugram (NH 48)">
+        <div class="autocomplete-wrapper">
+          <input id="route-dest" type="text" maxlength="200" autocomplete="off" placeholder="e.g. Cyber City, Gurugram (NH 48)">
+          <ul id="dest-suggestions" class="suggestions-dropdown" hidden></ul>
+        </div>
 
-        <button id="find-routes-btn" class="btn btn-primary" type="submit">Find Safe Routes</button>
+        <!-- Quick Destination Recommendations -->
+        <div class="recommendations-container" aria-label="Suggested safe destinations">
+          <span class="recommendations-label">⚡ Popular Safe Destinations:</span>
+          <div class="recommendations-chips" id="dest-chips">
+            <button type="button" class="rec-chip" data-dest="DLF Cyber City, Gurugram">🏙️ DLF Cyber City</button>
+            <button type="button" class="rec-chip" data-dest="Connaught Place, New Delhi">🏛️ Connaught Place</button>
+            <button type="button" class="rec-chip" data-dest="IGI Airport Terminal 3, New Delhi">✈️ IGI Airport (NH 48)</button>
+            <button type="button" class="rec-chip" data-dest="Bandra Kurla Complex, Mumbai">🏢 BKC Mumbai</button>
+            <button type="button" class="rec-chip" data-dest="Electronic City, Bengaluru">💻 Electronic City</button>
+          </div>
+        </div>
+
+        <button id="find-routes-btn" class="btn btn-primary" type="submit" style="margin-top: 14px;">Find Safe Routes</button>
       </form>
 
       <p id="route-status" class="route-status" aria-live="polite"></p>

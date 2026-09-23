@@ -1,30 +1,10 @@
 "use strict";
 
 /*
- * Safety Net — shared nav bar, injected into a <div id="site-nav"></div>
- * placeholder on every page. Deliberately just a few lines of vanilla JS
- * appending a <nav> — no frontend framework, no build step, no templating
- * engine. Every page includes this same file and calls renderNav("<page>")
- * with its own page key so the current page's link gets an "active" style
- * and the rest are given as clickable navigation, so a user can reach any
- * feature (or back to the landing page) from anywhere without the browser
- * back button.
- *
- * "Session" note (ponytail-relevant, see HANDOFF.md "stay logged in"
- * section): this file also remembers, in sessionStorage (tab-scoped, wiped
- * on tab close — NOT the durable localStorage the trusted contact lives
- * in), which page the user was last on, purely so a reload lands them back
- * where they were. This is a UX nicety only. It is not a security boundary
- * and implements nothing resembling login/authentication — there is no
- * server here to authenticate against. See HANDOFF.md's honest breakdown.
- *
- * XSS note: every string used to build the nav is a hardcoded label from
- * NAV_ITEMS below, never user input or trusted-contact data — so even
- * though this uses textContent throughout (same discipline as every other
- * file in this project), there's no live example here of sanitizing
- * *dynamic* content. If a future change ever wants to show the trusted
- * contact's name in the nav, it must go through textContent exactly like
- * contact-widget.js already does — never innerHTML.
+ * Safety Net — Modern Floating Resizable Navbar.
+ * Inspired by Aceternity UI floating resizable navigation bar.
+ * Features desktop glassmorphic pill bar, action buttons (112, SOS),
+ * and an animated mobile drawer toggle with smooth transitions.
  */
 
 const NAV_ITEMS = [
@@ -33,7 +13,7 @@ const NAV_ITEMS = [
   { key: "route", href: "route.html", label: "Route Planner" },
   { key: "history", href: "history.html", label: "Route History" },
   { key: "checkin", href: "checkin.html", label: "Check-in" },
-  { key: "chat", href: "chat.html", label: "Chat" },
+  { key: "chat", href: "chat.html", label: "AI Safety Chat" },
 ];
 
 const LAST_PAGE_SESSION_KEY = "safetyNet.session.lastPage";
@@ -42,27 +22,29 @@ function renderNav(currentPageKey) {
   const placeholder = document.getElementById("site-nav");
   if (!placeholder) return;
 
-  const nav = document.createElement("nav");
-  nav.className = "site-nav";
-  nav.setAttribute("aria-label", "Safety Net sections");
+  const wrapper = document.createElement("div");
+  wrapper.className = "nav-floating-wrapper";
 
+  const nav = document.createElement("nav");
+  nav.className = "nav-capsule";
+  nav.setAttribute("aria-label", "Main navigation");
+
+  // --- Brand ---
   const brand = document.createElement("a");
   brand.href = "index.html";
-  brand.className = "site-nav-brand";
+  brand.className = "nav-brand";
   const brandImg = document.createElement("img");
   brandImg.src = "logo.svg";
   brandImg.alt = "";
-  brandImg.width = 26;
-  brandImg.height = 26;
-  brandImg.style.display = "inline-block";
-  brandImg.style.verticalAlign = "middle";
+  brandImg.width = 28;
+  brandImg.height = 28;
   const brandText = document.createElement("span");
   brandText.textContent = "Safety Net";
   brand.append(brandImg, brandText);
-  nav.appendChild(brand);
 
-  const list = document.createElement("ul");
-  list.className = "site-nav-list";
+  // --- Desktop Navigation Links ---
+  const desktopList = document.createElement("ul");
+  desktopList.className = "nav-desktop-links site-nav-list";
   NAV_ITEMS.forEach((item) => {
     const li = document.createElement("li");
     const a = document.createElement("a");
@@ -73,26 +55,120 @@ function renderNav(currentPageKey) {
       a.setAttribute("aria-current", "page");
     }
     li.appendChild(a);
-    list.appendChild(li);
+    desktopList.appendChild(li);
   });
-  nav.appendChild(list);
 
-  placeholder.replaceWith(nav);
+  // --- Action Buttons ---
+  const actions = document.createElement("div");
+  actions.className = "nav-actions";
 
-  // ponytail: tab-scoped "remember last page" convenience only — sessionStorage,
-  // not localStorage, and not used for anything access-related. See file
-  // header comment. Cleared automatically when the tab closes.
+  const dialBtn = document.createElement("a");
+  dialBtn.href = "tel:112";
+  dialBtn.className = "nav-action-btn nav-action-btn-secondary";
+  dialBtn.title = "Call 112 National Emergency";
+  dialBtn.textContent = "📞 112";
+
+  const sosBtn = document.createElement("a");
+  sosBtn.href = "sos.html";
+  sosBtn.className = "nav-action-btn nav-action-btn-primary";
+  sosBtn.textContent = "🚨 SOS";
+
+  actions.append(dialBtn, sosBtn);
+
+  // --- Mobile Toggle ---
+  const toggleBtn = document.createElement("button");
+  toggleBtn.type = "button";
+  toggleBtn.className = "mobile-nav-toggle";
+  toggleBtn.setAttribute("aria-label", "Toggle navigation menu");
+  toggleBtn.setAttribute("aria-expanded", "false");
+  toggleBtn.innerHTML = `
+    <span class="bar bar-1"></span>
+    <span class="bar bar-2"></span>
+    <span class="bar bar-3"></span>
+  `;
+
+  nav.append(brand, desktopList, actions, toggleBtn);
+
+  // --- Mobile Drawer Menu ---
+  const mobileMenu = document.createElement("div");
+  mobileMenu.className = "mobile-nav-menu";
+  mobileMenu.hidden = true;
+
+  const mobileList = document.createElement("ul");
+  mobileList.className = "mobile-nav-list";
+  NAV_ITEMS.forEach((item) => {
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.href = item.href;
+    a.textContent = item.label;
+    if (item.key === currentPageKey) {
+      a.className = "mobile-nav-active";
+      a.setAttribute("aria-current", "page");
+    }
+    a.addEventListener("click", () => closeMobileMenu());
+    li.appendChild(a);
+    mobileList.appendChild(li);
+  });
+
+  const mobileActions = document.createElement("div");
+  mobileActions.className = "mobile-nav-actions";
+  const mobileSos = document.createElement("a");
+  mobileSos.href = "sos.html";
+  mobileSos.className = "btn btn-primary";
+  mobileSos.style.width = "100%";
+  mobileSos.style.background = "#dc2626";
+  mobileSos.style.justifyContent = "center";
+  mobileSos.textContent = "🚨 Quick SOS Panic Alert";
+
+  const mobileDial = document.createElement("a");
+  mobileDial.href = "tel:112";
+  mobileDial.className = "btn btn-secondary";
+  mobileDial.style.width = "100%";
+  mobileDial.style.justifyContent = "center";
+  mobileDial.textContent = "📞 Call 112 National Emergency";
+
+  mobileActions.append(mobileSos, mobileDial);
+  mobileMenu.append(mobileList, mobileActions);
+
+  function openMobileMenu() {
+    mobileMenu.hidden = false;
+    toggleBtn.classList.add("open");
+    toggleBtn.setAttribute("aria-expanded", "true");
+    requestAnimationFrame(() => {
+      mobileMenu.classList.add("is-visible");
+    });
+  }
+
+  function closeMobileMenu() {
+    mobileMenu.classList.remove("is-visible");
+    toggleBtn.classList.remove("open");
+    toggleBtn.setAttribute("aria-expanded", "false");
+    setTimeout(() => {
+      if (!toggleBtn.classList.contains("open")) {
+        mobileMenu.hidden = true;
+      }
+    }, 250);
+  }
+
+  toggleBtn.addEventListener("click", () => {
+    const isOpen = toggleBtn.classList.contains("open");
+    if (isOpen) {
+      closeMobileMenu();
+    } else {
+      openMobileMenu();
+    }
+  });
+
+  wrapper.append(nav, mobileMenu);
+  placeholder.replaceWith(wrapper);
+
   try {
     sessionStorage.setItem(LAST_PAGE_SESSION_KEY, currentPageKey);
   } catch (err) {
-    // Private-browsing modes can throw on sessionStorage writes — the nav
-    // still renders fine without this nicety, so just log and move on.
     console.warn("Safety Net: couldn't persist last-page session hint.", err);
   }
 }
 
-// Landing page (index.html) reads this to offer a "continue where you left
-// off" link if the user's tab still has a last-visited feature page set.
 function getLastSessionPage() {
   try {
     return sessionStorage.getItem(LAST_PAGE_SESSION_KEY);
