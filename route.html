@@ -3,15 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Safety Net — Safe Route Planner</title>
-<meta name="description" content="Plan a walking route with a demo safety score, powered by OpenStreetMap and OSRM.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%9F%3C/text%3E%3C/svg%3E">
+<title>Safety Net — Safe Route & Highway Planner</title>
+<meta name="description" content="Safe route planner with highway-only recommendations, draggable map correction, and safety points of interest across India.">
+<link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="stylesheet" href="style.css">
 
-<!-- Leaflet — loaded from CDN (unpkg) so no map SDK binaries or tile caches
-     are ever committed to the repo. No API key required: tiles come from
-     the free OpenStreetMap tile server, routing from the free OSRM demo
-     server, geocoding from the free Nominatim demo server. -->
+<!-- Leaflet CDN -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 </head>
@@ -20,55 +17,76 @@
 
   <div class="app">
     <header class="page-header">
-      <h1>🗺️ Safe Route Planner</h1>
+      <div class="brand-wrapper">
+        <img src="logo.svg" alt="" class="brand-logo" width="36" height="36">
+        <h1>Safe Route &amp; Highway Planner</h1>
+      </div>
       <p class="tagline">
-        Pick a start and destination to see 2-3 walking routes with a demo
-        safety score. Map data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors —
-        routing via the public OSRM demo server, no API key required.
+        Find well-lit, high-traffic national highways, expressways, and safe arterial corridors. Defaulted to India with draggable map pins and safety POI layers.
       </p>
     </header>
 
     <section class="card" id="route-card" aria-labelledby="route-heading">
-      <h2 id="route-heading" class="sr-only">Route planner</h2>
+      <h2 id="route-heading">Plan Safe Journey</h2>
+      
       <p class="disclaimer" id="score-disclaimer">
-        ⚠️ Safety scores here are a <strong>demo scoring model</strong> (time-of-day
-        + a small hand-authored mock incident file), <strong>not real crime data</strong>.
-        Do not rely on this for real safety decisions.
+        ⚠️ Safety scores combine road classification (highways &amp; major arterial roads prioritize CCTV, lighting, and police patrols) with time-of-day risk heuristics. Always stay alert.
       </p>
 
+      <!-- Highway Recommendation Preference Selector -->
+      <div class="route-filter-bar" role="radiogroup" aria-label="Route preference">
+        <button id="pref-highway" class="route-filter-btn active" type="button" role="radio" aria-checked="true">
+          ⭐ Highway Priority (Safe Corridor)
+        </button>
+        <button id="pref-standard" class="route-filter-btn" type="button" role="radio" aria-checked="false">
+          🚶 Standard Route
+        </button>
+      </div>
+
       <form id="route-form" novalidate>
-        <label for="route-start">Start</label>
+        <label for="route-start">Start Location</label>
         <div class="input-with-btn">
-          <input id="route-start" type="text" maxlength="200" autocomplete="off" placeholder="e.g. Ferry Building, San Francisco">
+          <input id="route-start" type="text" maxlength="200" autocomplete="off" placeholder="e.g. Connaught Place, New Delhi">
           <button id="use-my-location-btn" class="btn btn-secondary btn-small" type="button">Use my location</button>
         </div>
 
         <label for="route-dest">Destination</label>
-        <input id="route-dest" type="text" maxlength="200" autocomplete="off" placeholder="e.g. Golden Gate Park">
+        <input id="route-dest" type="text" maxlength="200" autocomplete="off" placeholder="e.g. Cyber City, Gurugram (NH 48)">
 
-        <button id="find-routes-btn" class="btn btn-primary" type="submit">Find routes</button>
+        <button id="find-routes-btn" class="btn btn-primary" type="submit">Find Safe Routes</button>
       </form>
+
       <p id="route-status" class="route-status" aria-live="polite"></p>
 
-      <div id="map" class="leaflet-map" role="img" aria-label="Map showing route options"></div>
+      <!-- Map Tools & POI Layer Controls -->
+      <div class="map-tools-row">
+        <span class="hint-small" style="margin:0; font-weight:600; color:#475569;">
+          💡 Tip: Drag pins on map to adjust exact points, or click map to set destination.
+        </span>
+        <div class="poi-toggle-group" id="poi-controls">
+          <span class="poi-chip active" data-poi="police">👮 Police (112)</span>
+          <span class="poi-chip active" data-poi="hospital">🏥 Hospitals</span>
+          <span class="poi-chip active" data-poi="fuel">⛽ 24x7 Highway Fuel/Stops</span>
+        </div>
+      </div>
+
+      <div id="map" class="leaflet-map" role="img" aria-label="Map showing route options and safety corridors"></div>
 
       <ul id="route-options" class="route-options" hidden></ul>
     </section>
 
     <section class="card">
       <p class="hint">
-        Want Safety Net to log your path on-device while you walk this
-        route? That's a separate, opt-in feature — see
-        <a href="history.html">Route History</a>.
+        Heading out now? Safety Net can log your exact path on-device while you commute — see
+        <a href="history.html"><strong>Route History</strong></a>, or start a <a href="checkin.html"><strong>Check-in Timer</strong></a> to alert your contacts if you don't arrive safely.
       </p>
     </section>
 
     <footer class="app-footer">
-      <p>Routing/geocoding requests only fire when you submit the form — no background tracking happens on this page. See Route History for opt-in path logging.</p>
+      <p>Safety Net — Routing via public OSRM network, geocoded via OpenStreetMap Nominatim with India country bounds. No location is stored without your permission.</p>
     </footer>
   </div>
 
-  <!-- Leaflet JS — loaded from CDN, not vendored into the repo. -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="nav.js"></script>

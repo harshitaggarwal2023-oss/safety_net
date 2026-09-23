@@ -2,17 +2,8 @@
 
 /*
  * Safety Net — checkin.html: check-in / dead-man's switch.
- *
- * Reuses, not rebuilds, the shared SOS pipeline: sendSosAlert() lives in
- * sos-engine.js and is called directly here with triggerReason
- * "checkin-timeout". No location/message/send logic is duplicated in this
- * file. contactIsValid()/loadContact() come from contact-store.js, also
- * reused unchanged.
- *
- * Same discipline as every other file in this project: all dynamic text
- * reaches the DOM via textContent, all timers are cleared on every exit
- * path, and this feature stays fully client-side (localStorage only, no
- * new network calls beyond what sendSosAlert() already does).
+ * Presets, +5m extension, Web Audio warning chime, desktop notification,
+ * and automated SOS dispatch via WhatsApp DM & Email on timeout.
  */
 
 // ---------------------------------------------------------------------------
@@ -54,30 +45,69 @@ const checkinStartBtn = document.getElementById("checkin-start-btn");
 const checkinActiveArea = document.getElementById("checkin-active-area");
 const checkinCountdown = document.getElementById("checkin-countdown");
 const checkinSafeBtn = document.getElementById("checkin-safe-btn");
+const checkinExtendBtn = document.getElementById("checkin-extend-btn");
 const checkinCancelBtn = document.getElementById("checkin-cancel-btn");
 const checkinStatus = document.getElementById("checkin-status");
+const checkinTargetHint = document.getElementById("checkin-target-hint");
+const presetContainer = document.getElementById("preset-container");
+
+// ---------------------------------------------------------------------------
+// Audio Chime & Notification Warnings
+// ---------------------------------------------------------------------------
+
+let audioCtx = null;
+let hasChimed = false;
+
+function playWarningChime() {
+  try {
+    if (!audioCtx) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) audioCtx = new AudioContextClass();
+    }
+    if (!audioCtx) return;
+    if (audioCtx.state === "suspended") audioCtx.resume();
+
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.15); // A5
+
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.4);
+  } catch (e) {
+    // Web audio might be restricted without user interaction
+  }
+}
+
+function notifyWarning(remainingSec) {
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
+      new Notification("⚠️ Safety Net: Check-in Reminder", {
+        body: `Your safety timer has only ${remainingSec}s remaining! Tap 'I'm Safe' to avoid triggering the SOS alert.`,
+        icon: "logo.svg",
+      });
+    } catch (e) {
+      // ignore
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Timer state
 // ---------------------------------------------------------------------------
 
-// ponytail: this only keeps running while the tab stays open (a setInterval
-// can't fire in a closed tab or a fully suspended background page). The
-// deadline itself is persisted to localStorage so a *reload* of an open tab
-// resumes correctly, and a deadline that already passed by the time the page
-// is reopened fires immediately on load rather than silently vanishing —
-// but a closed browser or OS-killed tab means no JS runs at all, so this
-// switch is best-effort, not a guaranteed background service. Ceiling: true
-// "fires even if the browser is fully closed" behavior needs a backend
-// (e.g. a server-side scheduled job) or a persistent background service —
-// out of scope for a static, backend-free app. Upgrade path: see the
-// EMAILJS/Twilio notes in .env.example for what a backend would unlock here
-// too (a server could hold the deadline and fire independently of the tab).
 let tickInterval = null;
 let currentDurationMs = null;
 
-const WARN_FRACTION = 0.2; // start visually warning at 20% of duration remaining
-const WARN_MAX_MS = 2 * 60 * 1000; // but never more than 2 minutes' warning window
+const WARN_FRACTION = 0.2; // 20% warning window
+const WARN_MAX_MS = 2 * 60 * 1000; // max 2 min
 
 function formatRemaining(ms) {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
@@ -86,24 +116,30 @@ function formatRemaining(ms) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function updateRecipientHint() {
+  const contact = loadContact();
+  if (contact && contactIsValid(contact) && checkinTargetHint) {
+    const channels = [];
+    if (contact.phone) channels.push(`WhatsApp ${contact.phone}`);
+    if (contact.email) channels.push(`Email ${contact.email}`);
+    checkinTargetHint.textContent = `Auto-alert target: ${contact.name} via ${channels.join(" & ")}`;
+  }
+}
+
 function renderContactGate() {
-  // Informational only — deliberately does NOT disable checkinStartBtn.
-  // The actual gate is beginCheckin()'s own contactIsValid() check below,
-  // same as the original Phase 3 behavior: submitting without a contact
-  // shows a status message rather than a pre-disabled button, so a user
-  // who adds a contact on another tab still gets an accurate in-the-moment
-  // check when they submit here.
   const contact = loadContact();
   const ok = contactIsValid(contact);
   contactGate.textContent = ok
-    ? `Trusted contact: ${contact.name} (${contact.email || contact.phone})`
-    : "No valid trusted contact saved yet — set one up on the Home page before starting a check-in timer.";
+    ? `Configured Contact: ${contact.name} (${contact.phone ? "WhatsApp: " + contact.phone + " · " : ""}${contact.email || ""})`
+    : "⚠️ No trusted contact saved yet — add one on the Home page before starting a check-in timer.";
   return ok;
 }
 
 function setActiveUi(active) {
   checkinActiveArea.hidden = !active;
   checkinForm.hidden = active;
+  if (presetContainer) presetContainer.hidden = active;
+  if (active) updateRecipientHint();
 }
 
 function stopTicking() {
@@ -117,9 +153,9 @@ async function handleCheckinElapsed() {
   stopTicking();
   clearCheckinState();
   setActiveUi(false);
-  checkinStatus.textContent = "No check-in received — sending SOS automatically…";
+  checkinStatus.textContent = "Timer expired — automatically dispatching emergency alert…";
   await sendSosAlert("checkin-timeout");
-  checkinStatus.textContent = "Check-in timer elapsed — SOS alert triggered. See the status above for send details.";
+  checkinStatus.textContent = "Check-in deadline elapsed — SOS triggered via WhatsApp DM & Email. Review details above.";
 }
 
 function tick() {
@@ -133,9 +169,17 @@ function tick() {
     handleCheckinElapsed();
     return;
   }
+
   checkinCountdown.textContent = `Check in within ${formatRemaining(remaining)}`;
   const warnThreshold = Math.min(WARN_MAX_MS, state.durationMs * WARN_FRACTION);
-  checkinActiveArea.classList.toggle("checkin-warning", remaining <= warnThreshold);
+  const isWarning = remaining <= warnThreshold;
+  checkinActiveArea.classList.toggle("checkin-warning", isWarning);
+
+  if (isWarning && !hasChimed) {
+    hasChimed = true;
+    playWarningChime();
+    notifyWarning(Math.ceil(remaining / 1000));
+  }
 }
 
 function startTicking() {
@@ -145,28 +189,40 @@ function startTicking() {
 }
 
 function beginCheckin(durationMs) {
-  // Re-verified this session (per the restructure spec's rate-limiting
-  // section): a check-in timer is already prevented from double-starting,
-  // because starting one always writes/overwrites a single localStorage
-  // key and this function is the only path to an "active" UI state — the
-  // form is hidden (setActiveUi(true)) the instant one starts, so there is
-  // no second "Start" control visible to trigger a concurrent timer while
-  // one's already running. This guard was correct from the Phase 3 handoff
-  // and needed no change for the multi-page split.
   if (loadCheckinState()) return;
 
   const contact = loadContact();
   if (!contactIsValid(contact)) {
-    checkinStatus.textContent = "Add a valid trusted contact on the Home page before starting a check-in timer.";
+    checkinStatus.textContent = "Please add a valid trusted contact on the Home page first.";
     return;
   }
+
+  // Request browser notification permission for timer warning
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+
+  hasChimed = false;
   currentDurationMs = durationMs;
   const deadline = Date.now() + durationMs;
   saveCheckinState({ deadline, durationMs });
   setActiveUi(true);
   checkinActiveArea.classList.remove("checkin-warning");
-  checkinStatus.textContent = "Check-in timer started.";
+  checkinStatus.textContent = `Check-in switch active for ${Math.round(durationMs / 60000)} minutes.`;
   startTicking();
+}
+
+// Preset Buttons
+if (presetContainer) {
+  presetContainer.addEventListener("click", (e) => {
+    const btn = e.target.closest(".preset-btn");
+    if (!btn) return;
+    const mins = parseInt(btn.dataset.mins, 10);
+    if (mins > 0) {
+      checkinMinutesInput.value = String(mins);
+      beginCheckin(mins * 60 * 1000);
+    }
+  });
 }
 
 checkinForm.addEventListener("submit", (e) => {
@@ -184,10 +240,26 @@ checkinSafeBtn.addEventListener("click", () => {
   if (!durationMs) return;
   const deadline = Date.now() + durationMs;
   saveCheckinState({ deadline, durationMs });
+  hasChimed = false;
   checkinActiveArea.classList.remove("checkin-warning");
-  checkinStatus.textContent = `Checked in — timer reset to ${Math.round(durationMs / 60000)} min.`;
+  checkinStatus.textContent = `Checked in safely! Timer reset to ${Math.round(durationMs / 60000)} min.`;
   tick();
 });
+
+if (checkinExtendBtn) {
+  checkinExtendBtn.addEventListener("click", () => {
+    const state = loadCheckinState();
+    if (!state) return;
+    const extraMs = 5 * 60 * 1000;
+    const newDeadline = state.deadline + extraMs;
+    const newDuration = state.durationMs + extraMs;
+    saveCheckinState({ deadline: newDeadline, durationMs: newDuration });
+    hasChimed = false;
+    checkinActiveArea.classList.remove("checkin-warning");
+    checkinStatus.textContent = "Extended timer by 5 minutes.";
+    tick();
+  });
+}
 
 checkinCancelBtn.addEventListener("click", () => {
   stopTicking();
@@ -196,14 +268,6 @@ checkinCancelBtn.addEventListener("click", () => {
   checkinStatus.textContent = "Check-in timer canceled.";
 });
 
-// If a manual SOS or the chat detector already fired an alert — whether
-// from THIS page or (via sos-engine.js's cross-tab storage-event signal,
-// see its "Cross-page signal" comment) from sos.html/chat.html open in a
-// different tab — while a check-in timer was running, the switch has done
-// its job (help is already on the way). Stop it rather than risk a
-// confusing second auto-fire later. Ignore our own "checkin-timeout"
-// trigger (already handled above) and "canceled" (nothing was actually
-// sent).
 onSosEnded((detail) => {
   if (detail.reason !== "fired" || detail.trigger === "checkin-timeout") return;
   const state = loadCheckinState();
@@ -211,14 +275,11 @@ onSosEnded((detail) => {
   stopTicking();
   clearCheckinState();
   setActiveUi(false);
-  checkinStatus.textContent = "Check-in timer stopped — an SOS alert already went out.";
+  checkinStatus.textContent = "Check-in timer stopped — an SOS alert already fired.";
 });
 
 // ---------------------------------------------------------------------------
-// Init — resume a timer that was running before a reload, or fire
-// immediately (best-effort) if the deadline already passed while this tab
-// wasn't open. See the ponytail note above tickInterval for the honest
-// limits of this.
+// Init
 // ---------------------------------------------------------------------------
 
 renderSosEngineWidget("sos-engine-mount");
@@ -230,7 +291,7 @@ renderContactGate();
   currentDurationMs = state.durationMs;
   setActiveUi(true);
   if (state.deadline - Date.now() <= 0) {
-    checkinStatus.textContent = "Check-in timer had already elapsed while this page was closed.";
+    checkinStatus.textContent = "Check-in timer elapsed while the app was closed.";
     handleCheckinElapsed();
   } else {
     startTicking();

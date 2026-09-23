@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Safety Net — Check-in Timer</title>
-<meta name="description" content="Set a timer before you head out. If you don't check in, Safety Net alerts your trusted contact automatically.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%9F%3C/text%3E%3C/svg%3E">
+<title>Safety Net — Check-in Timer &amp; Dead-Man's Switch</title>
+<meta name="description" content="Dead-man's switch check-in timer: automatically triggers WhatsApp DM and Email emergency alerts if you don't check in safely.">
+<link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,35 +13,55 @@
 
   <div class="app">
     <header class="page-header">
-      <h1>⏱️ Check-in Timer</h1>
+      <div class="brand-wrapper">
+        <img src="logo.svg" alt="" class="brand-logo" width="36" height="36">
+        <h1>Check-in Timer &amp; Safety Switch</h1>
+      </div>
       <p class="tagline">
-        Set a timer before you head out. If you don't tap "I'm safe" before
-        it runs out, Safety Net automatically sends the same SOS alert as
-        the SOS page, to your trusted contact.
+        Set a countdown before starting your commute. If you don't tap "I'm Safe" before time runs out, Safety Net automatically fires an emergency SOS alert via WhatsApp DM and Email.
       </p>
     </header>
 
-    <p id="checkin-contact-gate" class="contact-gate"></p>
+    <div id="checkin-contact-gate" class="contact-gate"></div>
 
     <section class="card" id="checkin-card" aria-labelledby="checkin-heading">
-      <h2 id="checkin-heading" class="sr-only">Check-in timer</h2>
+      <h2 id="checkin-heading">Set Safety Check-in</h2>
+
+      <p class="hint">
+        Choose a duration for your walk or trip. If you go quiet and miss the timer, your trusted contact receives an automated SOS with your GPS coordinates.
+      </p>
+
+      <!-- Quick Preset Chips -->
+      <div class="preset-group" id="preset-container" aria-label="Duration presets">
+        <button class="preset-btn" type="button" data-mins="5">⚡ 5 min</button>
+        <button class="preset-btn" type="button" data-mins="15">⏱️ 15 min</button>
+        <button class="preset-btn" type="button" data-mins="30">🚶 30 min</button>
+        <button class="preset-btn" type="button" data-mins="60">🚗 1 hour</button>
+      </div>
 
       <form id="checkin-form" novalidate>
-        <label for="checkin-minutes">Check in every</label>
+        <label for="checkin-minutes">Custom Duration (Minutes)</label>
         <div class="input-with-btn">
           <input id="checkin-minutes" type="number" min="1" max="180" step="1" value="15" inputmode="numeric">
           <span class="unit-label">minutes</span>
-          <button id="checkin-start-btn" class="btn btn-primary btn-small" type="submit">Start</button>
+          <button id="checkin-start-btn" class="btn btn-primary btn-small" type="submit">Start Timer</button>
         </div>
       </form>
 
+      <!-- Active Countdown Screen -->
       <div class="checkin-active" id="checkin-active-area" hidden>
-        <span id="checkin-indicator" class="tracking-indicator">⏱ Check-in active</span>
-        <p id="checkin-countdown" class="countdown-text" aria-live="polite"></p>
-        <div class="tracking-controls">
-          <button id="checkin-safe-btn" class="btn btn-primary" type="button">I'm safe</button>
-          <button id="checkin-cancel-btn" class="btn btn-cancel" type="button">Cancel check-in</button>
+        <span id="checkin-indicator" class="tracking-indicator">
+          <span class="pulse-dot"></span> Safety Switch Active
+        </span>
+        <p id="checkin-countdown" class="countdown-text" aria-live="polite">Check in within 15:00</p>
+
+        <div class="tracking-controls" style="justify-content:center;">
+          <button id="checkin-safe-btn" class="btn btn-primary" type="button">✅ I'm Safe (Reset)</button>
+          <button id="checkin-extend-btn" class="btn btn-secondary" type="button">➕ +5 Min</button>
+          <button id="checkin-cancel-btn" class="btn btn-cancel" type="button">🛑 Cancel</button>
         </div>
+
+        <p id="checkin-target-hint" class="checkin-recipient-hint"></p>
       </div>
 
       <p id="checkin-status" class="tracking-status" aria-live="polite"></p>
@@ -50,7 +70,7 @@
     <div id="sos-engine-mount"></div>
 
     <footer class="app-footer">
-      <p>Only one check-in timer can run at a time — starting a new one isn't possible while one is already active (the form is replaced by the active countdown above).</p>
+      <p>Safety Net — Dead-man's switch persists across page refreshes. Audio and notification warnings activate 60 seconds before time expires.</p>
     </footer>
   </div>
 

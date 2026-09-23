@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%" fill="none">
+  <defs>
+    <filter id="soft-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <!-- Shield Base Background -->
+  <path d="M100 15 C145 15 178 32 178 72 C178 128 135 168 100 185 C65 168 22 128 22 72 C22 32 55 15 100 15 Z" 
+        fill="#0f172a" filter="url(#soft-shadow)"/>
+
+  <!-- Inner Protective Shield Border -->
+  <path d="M100 25 C138 25 166 39 166 74 C166 122 130 157 100 172 C70 157 34 122 34 74 C34 39 62 25 100 25 Z" 
+        stroke="#1e293b" stroke-width="2.5" fill="#090d16"/>
+
+  <!-- Safety Net Interconnected Web (Hexagonal & Coordinate Lines) -->
+  <path d="M100 42 L138 64 L138 108 L100 130 L62 108 L62 64 Z" 
+        stroke="#0ea5a4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  
+  <path d="M100 42 L100 130 M62 64 L138 108 M62 108 L138 64" 
+        stroke="#0ea5a4" stroke-width="1.75" stroke-opacity="0.6" stroke-linecap="round"/>
+
+  <!-- Network Interconnection Nodes -->
+  <circle cx="100" cy="42" r="4.5" fill="#14b8a6"/>
+  <circle cx="138" cy="64" r="4.5" fill="#14b8a6"/>
+  <circle cx="138" cy="108" r="4.5" fill="#14b8a6"/>
+  <circle cx="100" cy="130" r="4.5" fill="#14b8a6"/>
+  <circle cx="62" cy="108" r="4.5" fill="#14b8a6"/>
+  <circle cx="62" cy="64" r="4.5" fill="#14b8a6"/>
+
+  <!-- Central Rescue Core / Pulse Beacon -->
+  <circle cx="100" cy="86" r="16" fill="#ef4444"/>
+  <circle cx="100" cy="86" r="22" stroke="#ef4444" stroke-width="2" stroke-opacity="0.5" stroke-dasharray="3 3"/>
+  <circle cx="100" cy="86" r="8" fill="#ffffff"/>
+
+  <!-- Cross Life-Safety Symbol inside core -->
+  <path d="M96 86 L104 86 M100 82 L100 90" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

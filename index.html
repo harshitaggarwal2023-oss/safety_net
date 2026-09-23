@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Safety Net — Home</title>
-<meta name="description" content="Safety Net: one-tap SOS alert, safe route planning, check-in timer, and a chat distress detector, for students and anyone commuting or living alone.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%9F%3C/text%3E%3C/svg%3E">
+<title>Safety Net — Personal Emergency &amp; Highway Safety</title>
+<meta name="description" content="Safety Net: one-tap SOS with WhatsApp autosend, highway-priority route planning, check-in dead-man's switch, and Qwen AI distress companion.">
+<link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,64 +13,73 @@
 
   <div class="app">
     <header class="app-header">
-      <h1>🛟 Safety Net</h1>
+      <div class="brand-wrapper">
+        <img src="logo.svg" alt="Safety Net Logo" class="brand-logo" width="46" height="46">
+        <h1>Safety Net <span class="header-badge">India &amp; Global</span></h1>
+      </div>
       <p class="tagline">
-        One-tap SOS with live location, a safe walking-route planner, a
-        check-in timer that alerts your contact if you go quiet, and a
-        chat-based distress check — all in one place for commutes, walks
-        home, and unfamiliar places.
+        One-tap SOS with WhatsApp DM autosend, safe highway route recommendations, check-in timer dead-man's switch, and an AI safety companion. Built for solo commuters, students, and night travelers.
       </p>
     </header>
 
+    <!-- Emergency Speed-Dial Strip -->
+    <aside class="emergency-bar" aria-label="Official emergency helplines">
+      <span class="emergency-bar-label">🚨 Official 24x7 Helplines:</span>
+      <div class="emergency-dial-group">
+        <a href="tel:112" class="dial-btn" title="National Emergency Number">📞 112 National</a>
+        <a href="tel:100" class="dial-btn" title="Police Emergency">👮 100 Police</a>
+        <a href="tel:1091" class="dial-btn" title="Women Safety Helpline">🛡️ 1091 Women</a>
+        <a href="tel:1073" class="dial-btn" title="Highway Emergency Helpline NHAI">🛣️ 1073 Highway</a>
+      </div>
+    </aside>
+
     <div id="resume-banner-mount"></div>
 
-    <!-- Trusted contact: setup form or welcome-back state, decided by
-         contact-widget.js reading the same localStorage record every task
-         page also checks. This is the only "entry flow" in the app — see
-         HANDOFF.md for why this is a local convenience, not real login. -->
+    <!-- Trusted Contact Setup Card -->
     <div id="contact-widget-mount"></div>
 
     <p class="session-note">
-      Note on "staying set up": your trusted contact is saved only in this
-      browser's local storage — there's no account, no password, and no
-      server behind this app, so this isn't real login/authentication. See
-      HANDOFF.md for the honest breakdown and what a future backend would
-      need to add for real accounts.
+      🔒 <strong>Local Privacy Guarantee</strong>: Your trusted contact details and location history are stored purely inside your device's browser local storage. Nothing is uploaded to advertising trackers.
     </p>
 
+    <!-- Core Features Grid -->
     <section class="card" aria-labelledby="features-heading">
-      <h2 id="features-heading">What do you need right now?</h2>
+      <h2 id="features-heading">Safety Services</h2>
       <nav class="feature-grid" aria-label="Safety Net features">
         <a class="feature-card" href="sos.html">
           <span class="feature-icon" aria-hidden="true">🆘</span>
-          <h3>SOS Alert</h3>
-          <p>Press-and-hold or double-tap to arm a 5s countdown, then send your live location to your trusted contact.</p>
+          <h3>SOS Panic Alert</h3>
+          <p>Flat tactile button (zero gradients). Hold to arm a 5s countdown, then autosends your live GPS location via WhatsApp DM &amp; Email.</p>
         </a>
+
         <a class="feature-card" href="route.html">
-          <span class="feature-icon" aria-hidden="true">🗺️</span>
-          <h3>Safe Route Planner</h3>
-          <p>Get 2-3 walking routes between two points with a demo safety score for each.</p>
+          <span class="feature-icon" aria-hidden="true">🛣️</span>
+          <h3>Highway Route Planner</h3>
+          <p>Prioritizes well-lit National Highways &amp; Expressways across India. Draggable map pins and police/hospital safety POI layers.</p>
         </a>
+
         <a class="feature-card" href="history.html">
           <span class="feature-icon" aria-hidden="true">📍</span>
-          <h3>Route History</h3>
-          <p>Opt-in, on-device tracking of your path while you walk — off by default.</p>
+          <h3>Route History &amp; HUD</h3>
+          <p>Opt-in, local GPS path recording with live speed, distance, GPX/JSON export, and session map playback.</p>
         </a>
+
         <a class="feature-card" href="checkin.html">
           <span class="feature-icon" aria-hidden="true">⏱️</span>
-          <h3>Check-in Timer</h3>
-          <p>Set a timer before you head out. Miss it, and Safety Net alerts your contact automatically.</p>
+          <h3>Check-in Timer Switch</h3>
+          <p>Dead-man's safety switch with audio chime warnings. If you don't check in before it expires, it fires the SOS alert automatically.</p>
         </a>
+
         <a class="feature-card" href="chat.html">
           <span class="feature-icon" aria-hidden="true">💬</span>
-          <h3>Chat Check-in</h3>
-          <p>Type how you're doing — a flagged message asks before sending anything, never sends silently.</p>
+          <h3>AI Safety Companion</h3>
+          <p>Powered by Qwen AI with offline fallback. Analyzes distress in natural language and offers 1-tap SOS emergency dispatch.</p>
         </a>
       </nav>
     </section>
 
     <footer class="app-footer">
-      <p>Safety Net — SOS Alert, Safe Route Planner &amp; Route History, Check-in Timer, and Chat Check-in. Nothing is sent anywhere except to the contact you set above, and only when you trigger an alert.</p>
+      <p>Safety Net — Personal Physical Safety Platform. Defaulted to India with Global Emergency Support.</p>
     </footer>
   </div>
 
@@ -78,11 +87,6 @@
   <script src="contact-store.js"></script>
   <script src="contact-widget.js"></script>
   <script>
-    // Read the tab-scoped "last visited page" hint BEFORE renderNav() below
-    // overwrites it with "index" for this very page — otherwise the
-    // landing page would just see its own visit and never offer to resume
-    // anywhere else. Purely a UX nicety (see nav.js header comment); never
-    // used for access control.
     const lastPageBeforeThisVisit = getLastSessionPage();
     renderNav("index");
     renderContactWidget("contact-widget-mount");

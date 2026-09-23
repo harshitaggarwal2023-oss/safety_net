@@ -56,6 +56,16 @@ function isValidPhone(value) {
   return digits.length >= 7 && digits.length <= 15;
 }
 
+function formatWhatsAppNumber(phone) {
+  if (!phone) return "";
+  let digits = phone.replace(/[^0-9]/g, "");
+  // Default to India (+91) if a standard 10-digit number is provided without country code
+  if (digits.length === 10) {
+    digits = "91" + digits;
+  }
+  return digits;
+}
+
 function contactIsValid(contact) {
   if (!contact || !contact.name || !contact.name.trim()) return false;
   const hasEmail = !!contact.email && contact.email.trim().length > 0;

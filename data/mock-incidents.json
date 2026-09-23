@@ -1,5 +1,5 @@
 {
-  "_disclaimer": "DEMO DATA ONLY. These are hand-authored, fictional risk zones for hackathon demo purposes. They are NOT real crime statistics and are NOT sourced from any police department, news reports, or incident database. Coordinates sit in the San Francisco, CA area only so the Safe Route Planner has something to visibly react to when demoing routes there — routes anywhere else in the world will simply get a neutral baseline score. See HANDOFF.md and the safety-score disclaimer shown in the app UI.",
+  "_disclaimer": "DEMO DATA ONLY. These are hand-authored, fictional risk zones for hackathon demo purposes. They are NOT real crime statistics and are NOT sourced from any police department, news reports, or incident database. Contains demo zones for India highways and metro corridors, and test zones. See HANDOFF.md and the safety-score disclaimer shown in the app UI.",
   "_schema": {
     "lat": "latitude, decimal degrees",
     "lng": "longitude, decimal degrees",
@@ -8,6 +8,12 @@
     "label": "short fictional label shown in route-score breakdowns, never a real location claim"
   },
   "zones": [
+    { "lat": 28.6280, "lng": 77.2060, "radius_m": 400, "weight": 5, "label": "Low-light underpass corridor (fictional)" },
+    { "lat": 28.5355, "lng": 77.3910, "radius_m": 500, "weight": 6, "label": "Isolated service road stretch (fictional)" },
+    { "lat": 28.4595, "lng": 77.0266, "radius_m": 450, "weight": 5, "label": "Construction diversion bypass (fictional)" },
+    { "lat": 28.7041, "lng": 77.1025, "radius_m": 400, "weight": 4, "label": "Dark industrial link road (fictional)" },
+    { "lat": 19.0760, "lng": 72.8777, "radius_m": 350, "weight": 5, "label": "Unlit railway crossing junction (fictional)" },
+    { "lat": 12.9716, "lng": 77.5946, "radius_m": 350, "weight": 4, "label": "Narrow lane off-arterial zone (fictional)" },
     { "lat": 37.7793, "lng": -122.4193, "radius_m": 350, "weight": 7, "label": "Demo zone A (fictional)" },
     { "lat": 37.7835, "lng": -122.4089, "radius_m": 250, "weight": 5, "label": "Demo zone B (fictional)" },
     { "lat": 37.7712, "lng": -122.4136, "radius_m": 300, "weight": 6, "label": "Demo zone C (fictional)" },

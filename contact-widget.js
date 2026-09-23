@@ -32,8 +32,6 @@ function renderContactWidget(containerId) {
 }
 
 function renderWelcomeBack(container, contact) {
-  const via = contact.email ? contact.email : contact.phone;
-
   const card = document.createElement("section");
   card.className = "card";
   card.id = "contact-card";
@@ -45,12 +43,14 @@ function renderWelcomeBack(container, contact) {
 
   const status = document.createElement("p");
   status.className = "contact-status";
-  // Two separate textContent-built spans instead of one interpolated
-  // string, so the contact's name (user-supplied) is never adjacent to a
-  // constructed template that could later tempt someone into innerHTML.
   const nameSpan = document.createElement("strong");
   nameSpan.textContent = contact.name;
-  status.append("Trusted contact saved: ", nameSpan, ` (${via})`);
+  
+  const channels = [];
+  if (contact.email) channels.push(`✉️ ${contact.email}`);
+  if (contact.phone) channels.push(`💬 WhatsApp / SMS: ${contact.phone}`);
+  
+  status.append("Trusted contact saved: ", nameSpan, " (", channels.join(" · "), ")");
 
   const changeBtn = document.createElement("button");
   changeBtn.type = "button";
@@ -77,7 +77,7 @@ function renderSetupForm(container, opts) {
 
   const hint = document.createElement("p");
   hint.className = "hint";
-  hint.textContent = "Who should we alert? Add at least an email or a phone number. This is saved only on this device.";
+  hint.textContent = "Who should we alert in an emergency? Add an email and/or a phone number for automatic WhatsApp DM and email alerts.";
 
   const form = document.createElement("form");
   form.id = "contact-form";
@@ -92,9 +92,9 @@ function renderSetupForm(container, opts) {
 
   const emailLabel = document.createElement("label");
   emailLabel.setAttribute("for", "contact-email");
-  emailLabel.textContent = "Email";
+  emailLabel.textContent = "Email (for instant email alerts)";
   const emailInput = document.createElement("input");
-  Object.assign(emailInput, { id: "contact-email", name: "email", type: "email", autocomplete: "email", maxLength: 120, placeholder: "e.g. mom@example.com" });
+  Object.assign(emailInput, { id: "contact-email", name: "email", type: "email", autocomplete: "email", maxLength: 120, placeholder: "e.g. trusted.contact@example.com" });
   if (prefill) emailInput.value = prefill.email || "";
   const emailError = document.createElement("p");
   Object.assign(emailError, { id: "email-error", className: "field-error" });
@@ -103,9 +103,9 @@ function renderSetupForm(container, opts) {
 
   const phoneLabel = document.createElement("label");
   phoneLabel.setAttribute("for", "contact-phone");
-  phoneLabel.textContent = "Phone";
+  phoneLabel.textContent = "Phone (WhatsApp DM & SMS)";
   const phoneInput = document.createElement("input");
-  Object.assign(phoneInput, { id: "contact-phone", name: "phone", type: "tel", autocomplete: "tel", maxLength: 30, placeholder: "e.g. +1 555 123 4567" });
+  Object.assign(phoneInput, { id: "contact-phone", name: "phone", type: "tel", autocomplete: "tel", maxLength: 30, placeholder: "e.g. +91 98765 43210 (India default)" });
   if (prefill) phoneInput.value = prefill.phone || "";
   const phoneError = document.createElement("p");
   Object.assign(phoneError, { id: "phone-error", className: "field-error" });

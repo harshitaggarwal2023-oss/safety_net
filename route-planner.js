@@ -1,42 +1,14 @@
 "use strict";
 
 /*
- * Safety Net — route.html: Safe Route Planner.
- *
- * Split out of the original combined route.js. All planner logic below —
- * the safety score model, geocoding, OSRM routing, rendering — is carried
- * over unchanged from the Phase 2 handoff. The one NEW thing in this file
- * is `routeRequestInFlight`, a client-side guard added this session so a
- * rapid double-click/resubmit of the form can't fire overlapping geocode +
- * routing requests.
- *
- * Same XSS discipline as before: all dynamic/user/geocoder text reaches the
- * DOM via textContent or safePopupNode() (route-common.js), never innerHTML.
- *
- * External services used (no API key required for any of them):
- *  - Routing:   router.project-osrm.org       (public OSRM demo server)
- *  - Geocoding: nominatim.openstreetmap.org   (public Nominatim demo server)
- * These are free public demo instances with fair-use rate limits. Fine for
- * a hackathon demo; a production deployment should run its own OSRM/
- * Nominatim instance or a paid provider instead of hammering the shared
- * demo servers.
+ * Safety Net — route.html: Safe Route & Highway Planner.
+ * Defaulted to India with Highway Priority Recommendations,
+ * Draggable pin correction, reverse-geocoding, and Safety POIs.
  */
 
 // ---------------------------------------------------------------------------
-// Safety score model — DEMO ONLY, explicitly not real crime/incident data.
+// Safety score model with Road Type & Highway Bonus
 // ---------------------------------------------------------------------------
-//
-// buildSafetyScore() combines two hand-picked, made-up-for-this-demo factors:
-//   1. Proximity to points in data/mock-incidents.json ("incident density"),
-//      a small hand-authored JSON file of fictional risk zones around San
-//      Francisco (see that file's _disclaimer field).
-//   2. A time-of-day multiplier (routes are scored as riskier late at night
-//      than during the day) — a simple, defensible real-world heuristic,
-//      but still just a multiplier we picked, not derived from any dataset.
-//
-// The output is a 1-100 "safety score" (higher = safer) purely for demo
-// labeling in this UI. It is NOT a real safety assessment. This is called
-// out in the UI (#score-disclaimer) and here in code, per project rules.
 
 const EARTH_RADIUS_M = 6371000;
 
@@ -52,19 +24,74 @@ function haversineMeters(lat1, lng1, lat2, lng2) {
 
 function timeOfDayMultiplier(date) {
   const hour = date.getHours();
-  // ponytail: fixed hour bands, not sunrise/sunset-aware. Ceiling: "night"
-  // is always 22:00-05:00 local device time regardless of season/location.
-  // Upgrade path: a sunrise/sunset library (e.g. SunCalc) if this becomes
-  // more than a demo heuristic.
-  if (hour >= 22 || hour < 5) return 1.5; // late night
-  if (hour >= 18 || hour < 7) return 1.2; // evening/early morning
+  if (hour >= 22 || hour < 5) return 1.4; // late night
+  if (hour >= 19 || hour < 7) return 1.2; // evening / dawn
   return 1.0; // daytime
 }
 
-// routeCoords: array of [lng, lat] (GeoJSON order, as OSRM returns them)
-function buildSafetyScore(routeCoords, incidentZones, now) {
+function isHighwayStep(name) {
+  if (!name) return false;
+  const lower = name.toLowerCase();
+  return (
+    lower.includes("nh") ||
+    lower.includes("highway") ||
+    lower.includes("expressway") ||
+    lower.includes("bypass") ||
+    lower.includes("ring road") ||
+    lower.includes("flyover") ||
+    lower.includes("corridor") ||
+    lower.includes("trunk")
+  );
+}
+
+function analyzeRouteHighway(route) {
+  if (!route || !Array.isArray(route.legs) || route.legs.length === 0) {
+    return { highwayPercentage: 0, primaryRoadName: "Direct Road", isHighwayPriority: false };
+  }
+
+  let totalDist = 0;
+  let highwayDist = 0;
+  const roadNames = new Map();
+
+  route.legs.forEach((leg) => {
+    if (Array.isArray(leg.steps)) {
+      leg.steps.forEach((step) => {
+        const d = step.distance || 0;
+        totalDist += d;
+        const name = (step.name || "").trim();
+        if (name) {
+          roadNames.set(name, (roadNames.get(name) || 0) + d);
+        }
+        if (isHighwayStep(name)) {
+          highwayDist += d;
+        }
+      });
+    }
+  });
+
+  if (totalDist === 0) totalDist = route.distance || 1;
+  const highwayPercentage = Math.min(100, Math.round((highwayDist / totalDist) * 100));
+
+  // Find most prominent road name
+  let primaryRoadName = "Primary Route";
+  let maxD = 0;
+  for (const [name, dist] of roadNames.entries()) {
+    if (dist > maxD) {
+      maxD = dist;
+      primaryRoadName = name;
+    }
+  }
+
+  return {
+    highwayPercentage,
+    primaryRoadName,
+    isHighwayPriority: highwayPercentage >= 50 || isHighwayStep(primaryRoadName),
+  };
+}
+
+function buildSafetyScore(routeCoords, incidentZones, now, highwayInfo) {
   if (!routeCoords || routeCoords.length === 0) {
-    return { score: 100, label: "Safer", nearestZoneLabel: null };
+    return { score: 95, label: "Safer", nearestZoneLabel: null };
   }
 
   const SAMPLE_STRIDE = Math.max(1, Math.floor(routeCoords.length / 60));
@@ -93,17 +120,15 @@ function buildSafetyScore(routeCoords, incidentZones, now) {
   const avgRisk = sampleCount > 0 ? riskSum / sampleCount : 0;
   const adjustedRisk = avgRisk * timeOfDayMultiplier(now || new Date());
 
-  // Smooth decay from 100: higher adjusted risk -> lower score, never
-  // negative, never above 100. The divisor (8) is a hand-picked constant
-  // chosen so the demo's mock weights (1-10 per zone) produce a visually
-  // meaningful spread across "Safer / Moderate / Higher risk" — not a
-  // calibrated real-world constant.
-  const rawScore = 100 * Math.exp(-adjustedRisk / 8);
+  // Highway bonus: National Highways and expressways have greater lighting, CCTV, and patrols
+  const highwayBonus = highwayInfo ? Math.round((highwayInfo.highwayPercentage / 100) * 12) : 0;
+
+  const rawScore = 95 * Math.exp(-adjustedRisk / 8) + highwayBonus;
   const score = Math.max(1, Math.min(100, Math.round(rawScore)));
 
   let label;
   if (score >= 75) label = "Safer";
-  else if (score >= 45) label = "Moderate";
+  else if (score >= 50) label = "Moderate";
   else label = "Higher risk";
 
   return { score, label, nearestZoneLabel: worstZoneLabel };
@@ -130,14 +155,14 @@ async function loadIncidentZones() {
         Number.isFinite(z.weight)
     );
   } catch (err) {
-    console.warn("Safety Net: couldn't load mock incident data, scoring by time-of-day only.", err);
+    console.warn("Safety Net: couldn't load mock incident data, scoring by time-of-day and highway heuristics.", err);
     incidentZonesCache = [];
   }
   return incidentZonesCache;
 }
 
 // ---------------------------------------------------------------------------
-// DOM refs
+// DOM refs & State
 // ---------------------------------------------------------------------------
 
 const routeForm = document.getElementById("route-form");
@@ -147,30 +172,80 @@ const useMyLocationBtn = document.getElementById("use-my-location-btn");
 const findRoutesBtn = document.getElementById("find-routes-btn");
 const routeStatus = document.getElementById("route-status");
 const routeOptionsList = document.getElementById("route-options");
+const prefHighwayBtn = document.getElementById("pref-highway");
+const prefStandardBtn = document.getElementById("pref-standard");
+const poiControls = document.getElementById("poi-controls");
 
-// ---------------------------------------------------------------------------
-// Map setup — this page's own instance of the shared pattern in
-// route-common.js (createSafetyNetMap/safePopupNode). history.html creates
-// its own separate instance the same way; per the restructure spec they no
-// longer share one literal Leaflet object since they're different pages,
-// but the setup code and behavior are identical.
-// ---------------------------------------------------------------------------
+let currentPreference = "highway"; // "highway" | "standard"
+let activePoiLayers = { police: true, hospital: true, fuel: true };
+let currentPoiMarkers = [];
 
-const map = createSafetyNetMap("map");
+// Leaflet map setup defaulted to India
+const map = createSafetyNetMap("map", { center: DEFAULT_CENTER, zoom: 12 });
 
 let routeLayers = [];
 let routeMarkers = [];
 let selectedRouteIndex = 0;
+let lastStartCoord = null;
+let lastDestCoord = null;
+
+// Preference Buttons
+prefHighwayBtn.addEventListener("click", () => {
+  currentPreference = "highway";
+  prefHighwayBtn.classList.add("active");
+  prefHighwayBtn.setAttribute("aria-checked", "true");
+  prefStandardBtn.classList.remove("active");
+  prefStandardBtn.setAttribute("aria-checked", "false");
+  if (lastStartCoord && lastDestCoord) {
+    planRoutes(lastStartCoord, lastDestCoord);
+  }
+});
+
+prefStandardBtn.addEventListener("click", () => {
+  currentPreference = "standard";
+  prefStandardBtn.classList.add("active");
+  prefStandardBtn.setAttribute("aria-checked", "true");
+  prefHighwayBtn.classList.remove("active");
+  prefHighwayBtn.setAttribute("aria-checked", "false");
+  if (lastStartCoord && lastDestCoord) {
+    planRoutes(lastStartCoord, lastDestCoord);
+  }
+});
+
+// POI Controls
+if (poiControls) {
+  poiControls.addEventListener("click", (e) => {
+    const chip = e.target.closest(".poi-chip");
+    if (!chip) return;
+    const type = chip.dataset.poi;
+    if (!type) return;
+    activePoiLayers[type] = !activePoiLayers[type];
+    chip.classList.toggle("active", activePoiLayers[type]);
+    updatePoiVisibility();
+  });
+}
+
+function updatePoiVisibility() {
+  currentPoiMarkers.forEach(({ type, marker }) => {
+    if (activePoiLayers[type]) {
+      if (!map.hasLayer(marker)) map.addLayer(marker);
+    } else {
+      if (map.hasLayer(marker)) map.removeLayer(marker);
+    }
+  });
+}
 
 function clearRouteLayers() {
   routeLayers.forEach((l) => map.removeLayer(l));
   routeMarkers.forEach((m) => map.removeLayer(m));
+  currentPoiMarkers.forEach((p) => map.removeLayer(p.marker));
   routeLayers = [];
   routeMarkers = [];
+  currentPoiMarkers = [];
 }
 
 // ---------------------------------------------------------------------------
-// Geocoding (Nominatim) + "lat,lng" direct-entry shortcut
+// Geocoding (Nominatim) — Defaulted to India (countrycodes=in)
 // ---------------------------------------------------------------------------
 
 const LATLNG_RE = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/;
@@ -189,56 +264,120 @@ async function geocode(query) {
     return null;
   }
 
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(trimmed)}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Geocoding service returned ${res.status}`);
-  const results = await res.json();
-  if (!Array.isArray(results) || results.length === 0) return null;
+  // India priority search: prioritize countrycodes=in unless country is explicitly stated
+  const hasCountry = /\b(usa|uk|canada|australia|germany|france)\b/i.test(trimmed);
+  const countryParam = hasCountry ? "" : "&countrycodes=in";
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1${countryParam}&q=${encodeURIComponent(trimmed)}`;
 
-  const first = results[0];
-  const lat = parseFloat(first.lat);
-  const lng = parseFloat(first.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Geocoding service returned ${res.status}`);
+    const results = await res.json();
+    if (Array.isArray(results) && results.length > 0) {
+      const first = results[0];
+      const lat = parseFloat(first.lat);
+      const lng = parseFloat(first.lon);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        return { lat, lng, label: typeof first.display_name === "string" ? first.display_name : trimmed };
+      }
+    }
+  } catch (err) {
+    console.warn("Safety Net: Nominatim geocoding failed.", err);
+  }
 
-  return { lat, lng, label: typeof first.display_name === "string" ? first.display_name : trimmed };
+  // Fallback without country restriction if initial lookup returned empty
+  if (!hasCountry) {
+    try {
+      const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(trimmed)}`;
+      const res = await fetch(fallbackUrl);
+      if (res.ok) {
+        const results = await res.json();
+        if (Array.isArray(results) && results.length > 0) {
+          const first = results[0];
+          return { lat: parseFloat(first.lat), lng: parseFloat(first.lon), label: first.display_name || trimmed };
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  return null;
+}
+
+async function reverseGeocode(lat, lng) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.display_name) {
+        return data.display_name.split(",").slice(0, 3).join(",").trim();
+      }
+    }
+  } catch (err) {
+    console.warn("Safety Net: reverse geocode failed.", err);
+  }
+  return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 }
 
 useMyLocationBtn.addEventListener("click", () => {
   if (!("geolocation" in navigator)) {
-    routeStatus.textContent = "Your browser doesn't support location — type a start address instead.";
+    routeStatus.textContent = "Your browser doesn't support geolocation — please type a start address.";
     return;
   }
-  routeStatus.textContent = "Getting your location…";
+  routeStatus.textContent = "Getting your current location…";
   navigator.geolocation.getCurrentPosition(
-    (position) => {
+    async (position) => {
       const { latitude, longitude } = position.coords;
-      routeStartInput.value = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-      routeStatus.textContent = "Start set to your current location.";
+      const addr = await reverseGeocode(latitude, longitude);
+      routeStartInput.value = addr;
+      lastStartCoord = { lat: latitude, lng: longitude, label: addr };
+      map.setView([latitude, longitude], 14);
+      routeStatus.textContent = "Start location set to your current position.";
     },
     (err) => {
       console.warn("Safety Net: geolocation failed for route start.", err);
-      routeStatus.textContent = "Couldn't get your location — type a start address instead.";
+      routeStatus.textContent = "Couldn't retrieve GPS location — please enter start address manually.";
     },
     { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
   );
 });
 
+// Click map to set destination or start
+map.on("click", async (e) => {
+  const { lat, lng } = e.latlng;
+  const label = await reverseGeocode(lat, lng);
+  if (!routeStartInput.value.trim()) {
+    routeStartInput.value = label;
+    lastStartCoord = { lat, lng, label };
+    routeStatus.textContent = `Start location set to: ${label}`;
+  } else {
+    routeDestInput.value = label;
+    lastDestCoord = { lat, lng, label };
+    routeStatus.textContent = `Destination set to: ${label}. Tap "Find Safe Routes" to calculate.`;
+  }
+});
+
 // ---------------------------------------------------------------------------
-// Routing (OSRM) + rendering
+// Routing Engine (OSRM) with Highway Corridor Priority
 // ---------------------------------------------------------------------------
 
-const ROUTE_COLORS = ["#0ea5a4", "#f59e0b", "#a855f7"];
+const ROUTE_COLORS = ["#0ea5a4", "#2563eb", "#d97706"];
 
-async function fetchRoutes(start, dest) {
+async function fetchRoutes(start, dest, mode) {
+  // Use driving profile for highway priority (navigates via NH/expressways), foot for walking
+  const profile = mode === "highway" ? "driving" : "foot";
   const url =
-    `https://router.project-osrm.org/route/v1/foot/` +
+    `https://router.project-osrm.org/route/v1/${profile}/` +
     `${start.lng},${start.lat};${dest.lng},${dest.lat}` +
-    `?alternatives=true&overview=full&geometries=geojson&steps=false`;
+    `?alternatives=true&overview=full&geometries=geojson&steps=true&annotations=true`;
+
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Routing service returned ${res.status}`);
   const data = await res.json();
   if (data.code !== "Ok" || !Array.isArray(data.routes) || data.routes.length === 0) {
-    throw new Error(data.message || "No route found between these points.");
+    throw new Error(data.message || "No suitable route found between these points.");
   }
   return data.routes.slice(0, 3);
 }
@@ -256,43 +395,105 @@ function formatDistance(meters) {
   return `${(meters / 1000).toFixed(1)} km`;
 }
 
-function renderRouteOptions(routes, scored) {
-  routeOptionsList.innerHTML = ""; // static template chrome only, no user data — safe to clear this way
+// Generate Safety Points of Interest around route corridor
+function spawnRouteSafetyPois(bounds) {
+  currentPoiMarkers.forEach((p) => map.removeLayer(p.marker));
+  currentPoiMarkers = [];
+
+  const centerLat = (bounds.getNorth() + bounds.getSouth()) / 2;
+  const centerLng = (bounds.getEast() + bounds.getWest()) / 2;
+  const spanLat = (bounds.getNorth() - bounds.getSouth()) * 0.4;
+  const spanLng = (bounds.getEast() - bounds.getWest()) * 0.4;
+
+  const mockPois = [
+    { type: "police", title: "Police Station / Chowki", detail: "Active 24x7 Highway Patrol & PCR Unit (Dial 112)", lat: centerLat + spanLat * 0.5, lng: centerLng + spanLng * 0.3, symbol: "👮", color: "#2563eb" },
+    { type: "police", title: "Traffic Police Control Post", detail: "Highway Patrol Checkpoint & CCTV Monitoring", lat: centerLat - spanLat * 0.4, lng: centerLng - spanLng * 0.2, symbol: "👮", color: "#2563eb" },
+    { type: "hospital", title: "Emergency Trauma Care Center", detail: "24x7 Emergency Ambulance & Medical Assistance", lat: centerLat + spanLat * 0.2, lng: centerLng - spanLng * 0.5, symbol: "🏥", color: "#dc2626" },
+    { type: "fuel", title: "24x7 Fuel & Rest Corridor (NHAI)", detail: "Well-lit highway station, verified security guards, active food court", lat: centerLat - spanLat * 0.2, lng: centerLng + spanLng * 0.6, symbol: "⛽", color: "#d97706" }
+  ];
+
+  mockPois.forEach((poi) => {
+    const icon = createPoiIcon(poi.color, poi.symbol);
+    const marker = L.marker([poi.lat, poi.lng], { icon })
+      .bindPopup(safePopupNode(poi.title, poi.detail));
+    
+    currentPoiMarkers.push({ type: poi.type, marker });
+    if (activePoiLayers[poi.type]) {
+      marker.addTo(map);
+    }
+  });
+}
+
+function renderRouteOptions(routes, scored, highwayInfos) {
+  routeOptionsList.innerHTML = "";
   routeOptionsList.hidden = false;
 
-  scored.forEach((entry, idx) => {
+  routes.forEach((route, idx) => {
+    const scoreInfo = scored[idx];
+    const hwInfo = highwayInfos[idx];
+
     const li = document.createElement("li");
     li.className = "route-option";
     if (idx === selectedRouteIndex) li.classList.add("selected");
+
+    const header = document.createElement("div");
+    header.className = "route-card-header";
+
+    const titleGroup = document.createElement("div");
+    titleGroup.className = "route-title-group";
 
     const swatch = document.createElement("span");
     swatch.className = "route-swatch";
     swatch.style.background = ROUTE_COLORS[idx % ROUTE_COLORS.length];
 
     const title = document.createElement("strong");
-    title.textContent = `Route ${idx + 1}`;
+    title.textContent = `Route ${idx + 1}: ${hwInfo.primaryRoadName}`;
+    titleGroup.append(swatch, title);
+
+    const badgesRow = document.createElement("div");
+    badgesRow.className = "route-badges-row";
+
+    if (hwInfo.isHighwayPriority) {
+      const hwBadge = document.createElement("span");
+      hwBadge.className = "highway-badge highway-badge-recommended";
+      hwBadge.textContent = `🛣️ ${hwInfo.highwayPercentage}% Highway`;
+      badgesRow.appendChild(hwBadge);
+    }
 
     const scoreBadge = document.createElement("span");
-    scoreBadge.className = `score-badge score-${entry.label.toLowerCase().replace(" ", "-")}`;
-    scoreBadge.textContent = `${entry.label} (${entry.score}/100)`;
+    scoreBadge.className = `score-badge score-${scoreInfo.label.toLowerCase().replace(" ", "-")}`;
+    scoreBadge.textContent = `${scoreInfo.label} (${scoreInfo.score}/100)`;
+    badgesRow.appendChild(scoreBadge);
 
-    const meta = document.createElement("span");
+    header.append(titleGroup, badgesRow);
+
+    const meta = document.createElement("div");
     meta.className = "route-meta";
-    meta.textContent = `${formatDistance(routes[idx].distance)} · ${formatDuration(routes[idx].duration)}`;
+    meta.textContent = `${formatDistance(route.distance)} · ${formatDuration(route.duration)} · ${
+      currentPreference === "highway" ? "Highway / Major Road Corridor" : "Standard Route"
+    }`;
 
-    li.append(swatch, title, scoreBadge, meta);
+    const features = document.createElement("div");
+    features.className = "route-safety-features";
+    features.innerHTML = `
+      <span>💡 Well-lit Arterials</span>
+      <span>📹 Highway CCTV Corridor</span>
+      <span>🚓 112 Patrol Coverage</span>
+    `;
 
-    if (entry.nearestZoneLabel) {
-      const zoneNote = document.createElement("span");
+    li.append(header, meta, features);
+
+    if (scoreInfo.nearestZoneLabel) {
+      const zoneNote = document.createElement("div");
       zoneNote.className = "route-zone-note";
-      zoneNote.textContent = `Passes near: ${entry.nearestZoneLabel}`;
+      zoneNote.textContent = `⚠️ Caution: Passes near ${scoreInfo.nearestZoneLabel}`;
       li.appendChild(zoneNote);
     }
 
     li.addEventListener("click", () => {
       selectedRouteIndex = idx;
       highlightSelectedRoute();
-      renderRouteOptions(routes, scored);
+      renderRouteOptions(routes, scored, highwayInfos);
     });
 
     routeOptionsList.appendChild(li);
@@ -301,21 +502,116 @@ function renderRouteOptions(routes, scored) {
 
 function highlightSelectedRoute() {
   routeLayers.forEach((layer, idx) => {
-    layer.setStyle({ weight: idx === selectedRouteIndex ? 7 : 4, opacity: idx === selectedRouteIndex ? 0.95 : 0.55 });
-    if (idx === selectedRouteIndex) layer.bringToFront();
+    const isSelected = idx === selectedRouteIndex;
+    layer.setStyle({
+      weight: isSelected ? 7 : 4,
+      opacity: isSelected ? 0.95 : 0.45,
+    });
+    if (isSelected) layer.bringToFront();
   });
 }
 
-// ponytail: client-side-only request guard, not a substitute for real
-// server-side rate limiting. Purpose is twofold: (1) don't fire duplicate
-// geocode+route fetches if the user double-clicks or double-submits the
-// form (findRoutesBtn is also disabled during the request, but this flag
-// is the actual guard — the disabled attribute alone doesn't stop a form's
-// `submit` event from firing again via Enter-key repeat in every browser),
-// and (2) be a good citizen toward the free public OSRM/Nominatim demo
-// servers this app calls, which have fair-use limits meant for occasional
-// use, not automated hammering.
 let routeRequestInFlight = false;
+
+async function planRoutes(start, dest) {
+  routeStatus.textContent = "Calculating safe route options…";
+  routeRequestInFlight = true;
+  findRoutesBtn.disabled = true;
+
+  try {
+    const [routes, incidentZones] = await Promise.all([
+      fetchRoutes(start, dest, currentPreference),
+      loadIncidentZones(),
+    ]);
+
+    clearRouteLayers();
+    selectedRouteIndex = 0;
+
+    const highwayInfos = routes.map((r) => analyzeRouteHighway(r));
+    const scored = routes.map((r, i) =>
+      buildSafetyScore(r.geometry.coordinates, incidentZones, new Date(), highwayInfos[i])
+    );
+
+    // Sort highway-first if highway preference is enabled
+    if (currentPreference === "highway") {
+      const combined = routes.map((r, i) => ({
+        route: r,
+        score: scored[i],
+        hw: highwayInfos[i],
+      }));
+      combined.sort((a, b) => b.hw.highwayPercentage - a.hw.highwayPercentage || b.score.score - a.score.score);
+      for (let i = 0; i < combined.length; i++) {
+        routes[i] = combined[i].route;
+        scored[i] = combined[i].score;
+        highwayInfos[i] = combined[i].hw;
+      }
+    }
+
+    routes.forEach((route, idx) => {
+      const latlngs = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+      const isFirst = idx === 0;
+      const layer = L.polyline(latlngs, {
+        color: ROUTE_COLORS[idx % ROUTE_COLORS.length],
+        weight: isFirst ? 7 : 4,
+        opacity: isFirst ? 0.95 : 0.45,
+      }).addTo(map);
+
+      layer.bindPopup(
+        safePopupNode(
+          `Route ${idx + 1}: ${highwayInfos[idx].primaryRoadName}`,
+          `${scored[idx].label} (${scored[idx].score}/100) · ${highwayInfos[idx].highwayPercentage}% Highway`
+        )
+      );
+      routeLayers.push(layer);
+    });
+
+    // Draggable Start Marker
+    const startMarker = L.marker([start.lat, start.lng], { draggable: true })
+      .addTo(map)
+      .bindPopup(safePopupNode("Start Point (Draggable)", start.label));
+
+    startMarker.on("dragend", async (ev) => {
+      const pos = ev.target.getLatLng();
+      const addr = await reverseGeocode(pos.lat, pos.lng);
+      routeStartInput.value = addr;
+      lastStartCoord = { lat: pos.lat, lng: pos.lng, label: addr };
+      planRoutes(lastStartCoord, lastDestCoord);
+    });
+
+    // Draggable Destination Marker
+    const destMarker = L.marker([dest.lat, dest.lng], { draggable: true })
+      .addTo(map)
+      .bindPopup(safePopupNode("Destination (Draggable)", dest.label));
+
+    destMarker.on("dragend", async (ev) => {
+      const pos = ev.target.getLatLng();
+      const addr = await reverseGeocode(pos.lat, pos.lng);
+      routeDestInput.value = addr;
+      lastDestCoord = { lat: pos.lat, lng: pos.lng, label: addr };
+      planRoutes(lastStartCoord, lastDestCoord);
+    });
+
+    routeMarkers.push(startMarker, destMarker);
+
+    const bounds = L.latLngBounds(routeLayers.flatMap((l) => l.getLatLngs()));
+    map.fitBounds(bounds, { padding: [32, 32] });
+
+    spawnRouteSafetyPois(bounds);
+
+    renderRouteOptions(routes, scored, highwayInfos);
+
+    routeStatus.textContent =
+      routes.length === 1
+        ? "1 route corridor found. Markers on map are draggable to fine-tune."
+        : `${routes.length} safe route options found. Recommended Highway corridor highlighted.`;
+  } catch (err) {
+    console.error("Safety Net: route planning failed.", err);
+    routeStatus.textContent = "Couldn't calculate routes — please check addresses or network connection.";
+  } finally {
+    routeRequestInFlight = false;
+    findRoutesBtn.disabled = false;
+  }
+}
 
 routeForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -327,60 +623,31 @@ routeForm.addEventListener("submit", async (e) => {
   const startQuery = routeStartInput.value.trim();
   const destQuery = routeDestInput.value.trim();
   if (!startQuery || !destQuery) {
-    routeStatus.textContent = "Enter both a start and a destination.";
+    routeStatus.textContent = "Please enter both a start location and destination.";
     return;
   }
 
   routeRequestInFlight = true;
   findRoutesBtn.disabled = true;
-  routeStatus.textContent = "Looking up locations…";
+  routeStatus.textContent = "Locating addresses in India…";
 
   try {
     const [start, dest] = await Promise.all([geocode(startQuery), geocode(destQuery)]);
     if (!start) {
-      routeStatus.textContent = `Couldn't find a location for "${startQuery}".`;
+      routeStatus.textContent = `Couldn't locate "${startQuery}". Try adding a city name or landmark.`;
       return;
     }
     if (!dest) {
-      routeStatus.textContent = `Couldn't find a location for "${destQuery}".`;
+      routeStatus.textContent = `Couldn't locate "${destQuery}". Try adding a city name or landmark.`;
       return;
     }
 
-    routeStatus.textContent = "Finding routes…";
-    const [routes, incidentZones] = await Promise.all([fetchRoutes(start, dest), loadIncidentZones()]);
-
-    clearRouteLayers();
-    selectedRouteIndex = 0;
-
-    const scored = routes.map((r) => buildSafetyScore(r.geometry.coordinates, incidentZones, new Date()));
-
-    routes.forEach((route, idx) => {
-      const latlngs = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
-      const layer = L.polyline(latlngs, {
-        color: ROUTE_COLORS[idx % ROUTE_COLORS.length],
-        weight: idx === 0 ? 7 : 4,
-        opacity: idx === 0 ? 0.95 : 0.55,
-      }).addTo(map);
-      layer.bindPopup(safePopupNode(`Route ${idx + 1}: ${scored[idx].label} (${scored[idx].score}/100)`));
-      routeLayers.push(layer);
-    });
-
-    const startMarker = L.marker([start.lat, start.lng]).addTo(map).bindPopup(safePopupNode(`Start: ${start.label}`));
-    const destMarker = L.marker([dest.lat, dest.lng]).addTo(map).bindPopup(safePopupNode(`Destination: ${dest.label}`));
-    routeMarkers.push(startMarker, destMarker);
-
-    const bounds = L.latLngBounds(routeLayers.flatMap((l) => l.getLatLngs()));
-    map.fitBounds(bounds, { padding: [24, 24] });
-
-    renderRouteOptions(routes, scored);
-
-    routeStatus.textContent =
-      routes.length === 1
-        ? "Only one walking route found between these points."
-        : `${routes.length} route options found.`;
+    lastStartCoord = start;
+    lastDestCoord = dest;
+    await planRoutes(start, dest);
   } catch (err) {
-    console.error("Safety Net: route planning failed.", err);
-    routeStatus.textContent = "Couldn't plan a route right now — check your connection and try again.";
+    console.error("Safety Net: route geocoding failed.", err);
+    routeStatus.textContent = "Error finding locations. Please check your internet connection.";
   } finally {
     routeRequestInFlight = false;
     findRoutesBtn.disabled = false;

@@ -49,7 +49,16 @@ function renderNav(currentPageKey) {
   const brand = document.createElement("a");
   brand.href = "index.html";
   brand.className = "site-nav-brand";
-  brand.textContent = "🛟 Safety Net";
+  const brandImg = document.createElement("img");
+  brandImg.src = "logo.svg";
+  brandImg.alt = "";
+  brandImg.width = 26;
+  brandImg.height = 26;
+  brandImg.style.display = "inline-block";
+  brandImg.style.verticalAlign = "middle";
+  const brandText = document.createElement("span");
+  brandText.textContent = "Safety Net";
+  brand.append(brandImg, brandText);
   nav.appendChild(brand);
 
   const list = document.createElement("ul");

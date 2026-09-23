@@ -1,241 +1,225 @@
 :root {
-  --bg: #0f172a;
-  --card-bg: #ffffff;
-  --text: #1e293b;
-  --muted: #64748b;
+  --bg: #090d16;
+  --bg-surface: #0f172a;
+  --bg-card: #ffffff;
+  --bg-card-subtle: #f8fafc;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-inverse: #f8fafc;
+  --border-light: #e2e8f0;
+  --border-focus: #0ea5a4;
   --accent: #0ea5a4;
-  --accent-dark: #0b8382;
+  --accent-hover: #0d9488;
+  --accent-light: #ccfbf1;
+  --accent-dark: #0f766e;
   --danger: #dc2626;
-  --danger-dark: #b91c1c;
-  --border: #e2e8f0;
-  --radius: 14px;
+  --danger-hover: #b91c1c;
+  --danger-light: #fee2e2;
+  --warning: #d97706;
+  --warning-light: #fef3c7;
+  --success: #16a34a;
+  --success-light: #dcfce7;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 10px 28px rgba(15, 23, 42, 0.12);
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: linear-gradient(180deg, #0f172a 0%, #1e293b 260px, #f1f5f9 260px);
-  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  background-color: #0b1120;
+  color: var(--text-main);
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
 .app {
-  max-width: 560px;
+  max-width: 620px;
   margin: 0 auto;
-  padding: 24px 16px 60px;
+  padding: 16px 16px 64px;
 }
 
-.app-header {
+/* ---------------------------------------------------------------------- */
+/* Header & Brand Identity                                                */
+/* ---------------------------------------------------------------------- */
+
+.app-header,
+.page-header {
   text-align: center;
-  color: #f8fafc;
-  padding: 16px 0 24px;
+  color: var(--text-inverse);
+  padding: 18px 0 20px;
 }
 
-.app-header h1 {
-  margin: 0 0 6px;
-  font-size: 2rem;
+.brand-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.brand-logo {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.app-header h1,
+.page-header h1 {
+  margin: 0;
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.header-badge {
+  font-size: 0.72rem;
+  background: #1e293b;
+  color: #38bdf8;
+  border: 1px solid #334155;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  vertical-align: middle;
 }
 
 .tagline {
-  margin: 0;
-  color: #cbd5e1;
-  font-size: 0.95rem;
+  margin: 8px 0 0;
+  color: #94a3b8;
+  font-size: 0.92rem;
+  line-height: 1.5;
 }
 
+/* ---------------------------------------------------------------------- */
+/* Emergency Speed-Dial Quick Bar (India & Global Helpline)              */
+/* ---------------------------------------------------------------------- */
+
+.emergency-bar {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.emergency-bar-label {
+  color: #f8fafc;
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.emergency-dial-group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dial-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #0f172a;
+  color: #fca5a5;
+  border: 1px solid #991b1b;
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.dial-btn:hover {
+  background: #991b1b;
+  color: #ffffff;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Cards & Containers                                                     */
+/* ---------------------------------------------------------------------- */
+
 .card {
-  background: var(--card-bg);
-  border-radius: var(--radius);
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid #f1f5f9;
 }
 
 .card h2 {
   margin-top: 0;
-  font-size: 1.1rem;
+  margin-bottom: 12px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: -0.2px;
 }
 
 .hint {
-  color: var(--muted);
-  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
   margin: 4px 0 16px;
 }
 
 .hint-small {
-  margin-top: -10px;
+  margin-top: -6px;
   font-size: 0.82rem;
 }
+
+/* ---------------------------------------------------------------------- */
+/* Form Controls                                                          */
+/* ---------------------------------------------------------------------- */
 
 label {
   display: block;
   font-size: 0.85rem;
-  font-weight: 600;
-  margin: 12px 0 4px;
+  font-weight: 700;
+  color: #334155;
+  margin: 12px 0 6px;
 }
 
 input[type="text"],
 input[type="email"],
-input[type="tel"] {
+input[type="tel"],
+input[type="number"],
+select {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  font-size: 1rem;
+  padding: 11px 14px;
+  border: 1.5px solid var(--border-light);
+  border-radius: var(--radius-md);
+  font-size: 0.96rem;
   font-family: inherit;
+  color: var(--text-main);
+  background: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.field-error {
-  color: var(--danger);
-  font-size: 0.82rem;
-  margin: 4px 0 0;
-}
-
-.btn {
-  border: none;
-  border-radius: 10px;
-  padding: 12px 18px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  margin-top: 16px;
-}
-
-.btn-secondary {
-  background: #e2e8f0;
-  color: var(--text);
-}
-
-.btn-secondary:hover { background: #cbd5e1; }
-
-.btn-primary {
-  background: var(--accent);
-  color: white;
-}
-
-.btn-primary:hover { background: var(--accent-dark); }
-
-.btn-cancel {
-  background: #f1f5f9;
-  color: var(--danger);
-  border: 2px solid var(--danger);
-  padding: 14px 28px;
-  font-size: 1.05rem;
-}
-
-.btn-cancel:hover { background: #fee2e2; }
-
-.contact-status {
-  font-size: 0.88rem;
-  color: var(--accent-dark);
-  min-height: 1.2em;
-}
-
-.sos-card { text-align: center; }
-
-.sos-wrap {
-  display: flex;
-  justify-content: center;
-  padding: 12px 0 8px;
-}
-
-.sos-btn {
-  width: 180px;
-  height: 180px;
-  border-radius: 50%;
-  border: none;
-  background: radial-gradient(circle at 35% 30%, #ef4444, var(--danger-dark));
-  color: white;
-  font-size: 1.8rem;
-  font-weight: 800;
-  letter-spacing: 2px;
-  cursor: pointer;
-  box-shadow: 0 12px 30px rgba(220, 38, 38, 0.45);
-  transition: transform 0.08s ease;
-  touch-action: manipulation;
-  user-select: none;
-}
-
-.sos-btn:active {
-  transform: scale(0.96);
-}
-
-.sos-btn.armed {
-  background: radial-gradient(circle at 35% 30%, #fb923c, #c2410c);
-  animation: pulse 1s infinite;
-}
-
-.sos-btn:disabled {
-  background: #cbd5e1;
-  box-shadow: none;
-  cursor: not-allowed;
-}
-
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.6); }
-  70% { box-shadow: 0 0 0 24px rgba(249, 115, 22, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
-}
-
-.countdown-area {
-  margin-top: 18px;
-}
-
-.countdown-text {
-  font-size: 1.3rem;
-  font-weight: 700;
-  color: var(--danger-dark);
-  margin: 0 0 8px;
-}
-
-.sos-status {
-  min-height: 1.4em;
-  margin-top: 14px;
-  font-size: 0.92rem;
-  color: var(--muted);
-}
-
-.message-preview {
-  white-space: pre-wrap;
-  word-break: break-word;
-  background: #f8fafc;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px;
-  font-size: 0.88rem;
-}
-
-.copy-status {
-  font-size: 0.85rem;
-  color: var(--accent-dark);
-  min-height: 1.2em;
-}
-
-.app-footer {
-  text-align: center;
-  color: var(--muted);
-  font-size: 0.8rem;
-  margin-top: 32px;
-}
-
-/* ---------------------------------------------------------------------- */
-/* Safe Route Planner + Route History (Phase 2)                            */
-/* ---------------------------------------------------------------------- */
-
-.disclaimer {
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  color: #92400e;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 0.85rem;
-  margin: 0 0 16px;
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(14, 165, 164, 0.15);
 }
 
 .input-with-btn {
@@ -248,28 +232,296 @@ input:focus {
   flex: 1;
 }
 
-.btn-small {
-  padding: 8px 12px;
+.field-error {
+  color: var(--danger);
   font-size: 0.82rem;
+  font-weight: 600;
+  margin: 5px 0 0;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Buttons                                                                */
+/* ---------------------------------------------------------------------- */
+
+.btn {
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 12px 20px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.12s ease, transform 0.08s ease, box-shadow 0.12s ease;
+  user-select: none;
+  text-decoration: none;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-secondary {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.btn-secondary:hover {
+  background: #cbd5e1;
+}
+
+.btn-cancel {
+  background: #ffffff;
+  color: var(--danger);
+  border: 2px solid var(--danger);
+  padding: 12px 24px;
+}
+
+.btn-cancel:hover {
+  background: var(--danger-light);
+}
+
+.btn-small {
+  padding: 8px 14px;
+  font-size: 0.84rem;
+  border-radius: var(--radius-sm);
   margin-top: 0;
   white-space: nowrap;
 }
 
-.route-status,
-.tracking-status {
+.btn-whatsapp {
+  background: #25d366;
+  color: #ffffff;
+}
+
+.btn-whatsapp:hover {
+  background: #1ebc59;
+}
+
+/* ---------------------------------------------------------------------- */
+/* SOS PANIC BUTTON — STRICTLY NO GRADIENTS (Flat, Tactile, High-Contrast)*/
+/* ---------------------------------------------------------------------- */
+
+.sos-card {
+  text-align: center;
+  padding: 28px 22px;
+}
+
+.sos-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 10px;
+}
+
+.sos-btn {
+  width: 196px;
+  height: 196px;
+  border-radius: 50%;
+  border: 6px solid #b91c1c;
+  background-color: #dc2626; /* STRICTLY SOLID COLOR - NO GRADIENT */
+  color: #ffffff;
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(220, 38, 38, 0.45);
+  transition: background-color 0.1s ease, transform 0.08s ease, border-color 0.1s ease;
+  touch-action: manipulation;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.sos-btn:active {
+  background-color: #991b1b;
+  border-color: #7f1d1d;
+  transform: scale(0.95);
+}
+
+.sos-subtext {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  opacity: 0.9;
+}
+
+.sos-btn.armed {
+  background-color: #ea580c; /* STRICTLY SOLID ORANGE - NO GRADIENT */
+  border-color: #c2410c;
+  box-shadow: 0 0 0 10px rgba(234, 88, 12, 0.35);
+  animation: solid-pulse 0.9s infinite alternate;
+}
+
+.sos-btn:disabled {
+  background-color: #cbd5e1;
+  border-color: #94a3b8;
+  color: #64748b;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@keyframes solid-pulse {
+  0% {
+    box-shadow: 0 0 0 4px rgba(234, 88, 12, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 0 20px rgba(234, 88, 12, 0);
+  }
+}
+
+.countdown-area {
+  margin-top: 20px;
+}
+
+.countdown-text {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #991b1b;
+  margin: 0 0 12px;
+}
+
+.sos-status {
+  min-height: 1.4em;
+  margin-top: 14px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.cooldown-notice {
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+  color: #92400e;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
   font-size: 0.88rem;
-  color: var(--muted);
-  min-height: 1.3em;
-  margin: 10px 0;
+  font-weight: 600;
+  margin-top: 16px;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Message Preview & Quick Action Bar                                     */
+/* ---------------------------------------------------------------------- */
+
+.message-preview {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f8fafc;
+  border: 1.5px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #1e293b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.alert-action-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.copy-status {
+  font-size: 0.85rem;
+  color: var(--accent-dark);
+  font-weight: 600;
+  min-height: 1.2em;
+  margin-top: 6px;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Safe Route Planner & Highway Recommendation                            */
+/* ---------------------------------------------------------------------- */
+
+.route-filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: var(--radius-md);
+}
+
+.route-filter-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.route-filter-btn.active {
+  background: #ffffff;
+  color: var(--accent-dark);
+  box-shadow: var(--shadow-sm);
+}
+
+.map-tools-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 10px 0 4px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.poi-toggle-group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.poi-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid var(--border-light);
+  border-radius: 999px;
+  padding: 3px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.poi-chip.active {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #7dd3fc;
 }
 
 .leaflet-map {
   width: 100%;
-  height: 340px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  margin: 14px 0;
-  z-index: 0; /* keep Leaflet's internal panes below any card shadows/overlays */
+  height: 380px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border-light);
+  margin: 10px 0 16px;
+  z-index: 0;
 }
 
 .route-options {
@@ -278,18 +530,23 @@ input:focus {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .route-option {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-md);
   cursor: pointer;
+  background: #ffffff;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.route-option:hover {
+  border-color: #cbd5e1;
 }
 
 .route-option.selected {
@@ -297,78 +554,487 @@ input:focus {
   background: #f0fdfa;
 }
 
+.route-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.route-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .route-swatch {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 4px;
   flex-shrink: 0;
 }
 
-.route-meta {
-  color: var(--muted);
-  font-size: 0.85rem;
+.route-badges-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
-.route-zone-note {
-  flex-basis: 100%;
-  font-size: 0.78rem;
-  color: var(--muted);
-  font-style: italic;
+.highway-badge {
+  background: #e0e7ff;
+  color: #3730a3;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.highway-badge-recommended {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
 }
 
 .score-badge {
-  padding: 3px 10px;
+  padding: 3px 9px;
   border-radius: 999px;
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.74rem;
+  font-weight: 800;
 }
 
 .score-safer {
-  background: #dcfce7;
+  background: var(--success-light);
   color: #166534;
 }
 
 .score-moderate {
-  background: #fef9c3;
+  background: var(--warning-light);
   color: #854d0e;
 }
 
 .score-higher-risk {
-  background: #fee2e2;
+  background: var(--danger-light);
   color: #991b1b;
 }
 
-.section-divider {
-  border: none;
-  border-top: 1px solid var(--border);
-  margin: 24px 0 18px;
+.route-meta {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.route-safety-features {
+  display: flex;
+  gap: 12px;
+  font-size: 0.78rem;
+  color: #475569;
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border-light);
+}
+
+.route-zone-note {
+  font-size: 0.78rem;
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.disclaimer {
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+  color: #92400e;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  margin: 0 0 16px;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Route History — HUD & Sessions List                                    */
+/* ---------------------------------------------------------------------- */
+
+.tracking-hud {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  background: #f8fafc;
+  border: 1.5px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.hud-stat-value {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.hud-stat-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
 }
 
 .tracking-controls {
   display: flex;
   align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.tracking-indicator {
+  font-weight: 800;
+  color: var(--danger);
+  font-size: 0.88rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pulse-dot {
+  width: 10px;
+  height: 10px;
+  background: var(--danger);
+  border-radius: 50%;
+  animation: pulse-dot-anim 1s infinite alternate;
+}
+
+@keyframes pulse-dot-anim {
+  0% { transform: scale(0.8); opacity: 0.7; }
+  100% { transform: scale(1.3); opacity: 1; }
+}
+
+.history-sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.history-session-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  gap: 8px;
+}
+
+.session-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.session-date {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.session-stats {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Check-in Timer                                                         */
+/* ---------------------------------------------------------------------- */
+
+.preset-group {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0 14px;
+  flex-wrap: wrap;
+}
+
+.preset-btn {
+  border: 1.5px solid var(--border-light);
+  background: #ffffff;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.preset-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.checkin-active {
+  margin-top: 16px;
+  padding: 20px;
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  background: #f8fafc;
+  text-align: center;
+}
+
+.checkin-active.checkin-warning {
+  background: #fff7ed;
+  border-color: #ea580c;
+}
+
+.checkin-active.checkin-warning .countdown-text {
+  color: #c2410c;
+}
+
+.checkin-recipient-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* ---------------------------------------------------------------------- */
+/* AI Chat Assistant                                                      */
+/* ---------------------------------------------------------------------- */
+
+.chat-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.ai-engine-status {
+  font-size: 0.74rem;
+  color: #0d9488;
+  background: #ccfbf1;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chat-log {
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1.5px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #f8fafc;
+}
+
+.chat-msg {
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 0.92rem;
+  max-width: 85%;
+  word-break: break-word;
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+.chat-msg-user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #ffffff;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-msg-system {
+  align-self: flex-start;
+  background: #e2e8f0;
+  color: var(--text-main);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-msg-flag {
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1.5px solid #fdba74;
+}
+
+.chat-confirm-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+#chat-form {
+  display: flex;
+  gap: 8px;
+}
+
+#chat-form input {
+  flex: 1;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Navigation Bar                                                         */
+/* ---------------------------------------------------------------------- */
+
+.site-nav {
+  background: #090d16;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 12px 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 18px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.site-nav-brand {
+  color: #ffffff;
+  font-weight: 800;
+  text-decoration: none;
+  font-size: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.site-nav-brand img,
+.site-nav-brand svg {
+  width: 28px;
+  height: 28px;
+}
+
+.site-nav-list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+}
+
+.site-nav-list a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  transition: all 0.12s ease;
+}
+
+.site-nav-list a:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.site-nav-list a.site-nav-active {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Feature Grid & Landing                                                 */
+/* ---------------------------------------------------------------------- */
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.feature-card {
+  display: block;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  text-decoration: none;
+  color: var(--text-main);
+  box-shadow: var(--shadow-sm);
+  border: 1.5px solid var(--border-light);
+  transition: border-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.feature-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.feature-card .feature-icon {
+  font-size: 1.8rem;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.feature-card h3 {
+  margin: 0 0 6px;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.feature-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.resume-banner {
+  background: #ecfeff;
+  border: 1.5px solid #a5f3fc;
+  color: #0e7490;
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.tracking-controls-secondary {
-  margin-top: 10px;
+.resume-banner a {
+  color: #0e7490;
+  font-weight: 800;
 }
 
-.tracking-indicator {
-  font-weight: 700;
-  color: var(--danger);
-  animation: pulse-text 1.4s infinite;
+.session-note,
+.contact-gate {
+  background: #f8fafc;
+  border: 1px solid var(--border-light);
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  margin: 0 0 16px;
 }
 
-@keyframes pulse-text {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+.app-footer {
+  text-align: center;
+  color: #64748b;
+  font-size: 0.8rem;
+  margin-top: 36px;
+  line-height: 1.5;
 }
-
-/* ---------------------------------------------------------------------- */
-/* Check-in timer + Chat distress detector (Phase 3)                       */
-/* ---------------------------------------------------------------------- */
 
 .sr-only {
   position: absolute;
@@ -382,269 +1048,23 @@ input:focus {
   border: 0;
 }
 
-.unit-label {
-  color: var(--muted);
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-
-#checkin-minutes {
-  max-width: 90px;
-  flex: 0 0 auto;
-}
-
-.checkin-active {
-  margin-top: 16px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: #f8fafc;
-  text-align: center;
-}
-
-.checkin-active .countdown-text {
-  margin: 8px 0 12px;
-}
-
-.checkin-active.checkin-warning {
-  background: #fff7ed;
-  border-color: #fdba74;
-}
-
-.checkin-active.checkin-warning .countdown-text {
-  color: var(--danger-dark);
-}
-
-.chat-log {
-  max-height: 260px;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px;
-  margin-bottom: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: #f8fafc;
-}
-
-.chat-log:empty::before {
-  content: "Nothing typed yet.";
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
-.chat-msg {
-  padding: 8px 12px;
-  border-radius: 12px;
-  font-size: 0.9rem;
-  max-width: 85%;
-  word-break: break-word;
-  white-space: pre-wrap;
-}
-
-.chat-msg-user {
-  align-self: flex-end;
-  background: var(--accent);
-  color: white;
-}
-
-.chat-msg-system {
-  align-self: flex-start;
-  background: #e2e8f0;
-  color: var(--text);
-}
-
-.chat-msg-system.chat-msg-flag {
-  background: #fef9c3;
-  color: #854d0e;
-  border: 1px solid #fde68a;
-}
-
-.chat-confirm-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 6px;
-}
-
-.chat-confirm-row .btn {
-  margin-top: 0;
-}
-
-#chat-form {
-  display: flex;
-  gap: 8px;
-}
-
-#chat-form input {
-  flex: 1;
-}
-
-#chat-form .btn {
-  margin-top: 0;
-  white-space: nowrap;
-}
-
-/* ---------------------------------------------------------------------- */
-/* Shared nav bar (Phase 4 multi-page restructure)                         */
-/* ---------------------------------------------------------------------- */
-
-.site-nav {
-  background: #0b1220;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 10px 16px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 18px;
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-}
-
-.site-nav-brand {
-  color: #f8fafc;
-  font-weight: 800;
-  text-decoration: none;
-  font-size: 1.05rem;
-  white-space: nowrap;
-}
-
-.site-nav-list {
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-}
-
-.site-nav-list a {
-  display: inline-block;
-  color: #cbd5e1;
-  text-decoration: none;
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 6px 10px;
-  border-radius: 8px;
-}
-
-.site-nav-list a:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #f8fafc;
-}
-
-.site-nav-list a.site-nav-active {
-  background: var(--accent);
-  color: #ffffff;
-}
-
-/* ---------------------------------------------------------------------- */
-/* Landing page                                                            */
-/* ---------------------------------------------------------------------- */
-
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
-  margin-top: 8px;
-}
-
-.feature-card {
-  display: block;
-  background: var(--card-bg);
-  border-radius: var(--radius);
-  padding: 18px;
-  text-decoration: none;
-  color: var(--text);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
-  border: 1px solid transparent;
-  transition: border-color 0.15s ease, transform 0.1s ease;
-}
-
-.feature-card:hover {
-  border-color: var(--accent);
-  transform: translateY(-2px);
-}
-
-.feature-card .feature-icon {
-  font-size: 1.6rem;
-  display: block;
-  margin-bottom: 8px;
-}
-
-.feature-card h3 {
-  margin: 0 0 6px;
-  font-size: 1.05rem;
-}
-
-.feature-card p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
-.resume-banner {
-  background: #ecfeff;
-  border: 1px solid #a5f3fc;
-  color: #0e7490;
-  border-radius: 10px;
-  padding: 10px 14px;
-  font-size: 0.88rem;
-  margin: 0 0 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.resume-banner a {
-  color: #0e7490;
-  font-weight: 700;
-}
-
-/* ---------------------------------------------------------------------- */
-/* Task page header + cross-page auth/rate-limit UX notes (Phase 4)        */
-/* ---------------------------------------------------------------------- */
-
-.page-header {
-  text-align: center;
-  color: #f8fafc;
-  padding: 20px 0 22px;
-}
-
-.page-header h1 {
-  margin: 0 0 6px;
-  font-size: 1.7rem;
-}
-
-.session-note {
-  background: #f1f5f9;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 0.78rem;
-  margin: 0 0 16px;
-}
-
-.contact-gate {
-  font-size: 0.85rem;
-  color: var(--muted);
-  background: #f8fafc;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px 12px;
-  margin: 0 0 16px;
-}
-
-.cooldown-notice {
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  color: #92400e;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 0.85rem;
-  margin-top: 14px;
+@media (max-width: 480px) {
+  .app {
+    padding: 10px 10px 50px;
+  }
+  .card {
+    padding: 16px;
+  }
+  .sos-btn {
+    width: 170px;
+    height: 170px;
+    font-size: 1.75rem;
+  }
+  .site-nav {
+    padding: 10px 12px;
+  }
+  .emergency-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

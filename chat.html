@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Safety Net — Chat Check-in</title>
-<meta name="description" content="Type how you're doing. A flagged message always asks before sending an SOS alert.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%9F%3C/text%3E%3C/svg%3E">
+<title>Safety Net — AI Safety Companion &amp; Distress Check</title>
+<meta name="description" content="AI personal safety companion powered by Qwen. Zero API key needed; analyzes distress and guides emergency SOS dispatch.">
+<link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,36 +13,38 @@
 
   <div class="app">
     <header class="page-header">
-      <h1>💬 Chat Check-in</h1>
+      <div class="brand-wrapper">
+        <img src="logo.svg" alt="" class="brand-logo" width="36" height="36">
+        <h1>AI Safety Companion</h1>
+      </div>
       <p class="tagline">
-        Type how you're doing. This runs entirely on your device — nothing
-        you type here is sent anywhere by itself. If your message looks like
-        it might describe a distress situation, Safety Net will ask before
-        sending anything; it never sends an alert without your confirmation.
+        Chat with your personal safety companion. Powered by Qwen (zero API key needed) with on-device offline resilience. Flagged distress messages immediately trigger a 1-tap SOS confirmation.
       </p>
     </header>
 
     <section class="card" id="chat-card" aria-labelledby="chat-heading">
-      <h2 id="chat-heading" class="sr-only">Chat</h2>
+      <div class="chat-badge-row">
+        <h2 id="chat-heading" style="margin:0;">Safety Chat</h2>
+        <span class="ai-engine-status" id="ai-status-badge">⚡ Qwen AI Online</span>
+      </div>
+
       <p class="disclaimer" id="chat-disclaimer">
-        ⚠️ This is a simple on-device keyword check, not a crisis service or
-        a clinical tool. If you are in immediate physical danger, contact
-        your local emergency number directly the moment you're able to.
+        ⚠️ Safety Net AI is an assistive companion and distress detector. In an immediate life-threatening emergency, always contact local emergency services (Dial 112 / 100) or press the SOS button.
       </p>
 
       <div id="chat-log" class="chat-log" aria-live="polite"></div>
 
       <form id="chat-form" novalidate>
-        <label for="chat-input" class="sr-only">Message</label>
-        <input id="chat-input" type="text" maxlength="500" autocomplete="off" placeholder="Type here…">
-        <button id="chat-send-btn" class="btn btn-secondary" type="submit">Send</button>
+        <label for="chat-input" class="sr-only">Type how you're feeling or where you are</label>
+        <input id="chat-input" type="text" maxlength="500" autocomplete="off" placeholder="Type how you're doing, your situation, or ask for safety advice…">
+        <button id="chat-send-btn" class="btn btn-primary" type="submit">Send</button>
       </form>
     </section>
 
     <div id="sos-engine-mount"></div>
 
     <footer class="app-footer">
-      <p>Chat messages are never stored — they exist only in this page's memory for this session and disappear on reload.</p>
+      <p>Safety Net — Chat operates with zero API key. Messages remain private and are never saved or sent to marketing databases.</p>
     </footer>
   </div>
 

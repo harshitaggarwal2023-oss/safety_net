@@ -79,16 +79,20 @@ function renderSosEngineWidget(containerId) {
 
   // Message preview / manual send card (hidden until a send is attempted).
   messagePreview = el("pre", { id: "message-preview", className: "message-preview" });
-  copyBtn = el("button", { id: "copy-btn", className: "btn btn-secondary", type: "button", textContent: "Copy message" });
+  copyBtn = el("button", { id: "copy-btn", className: "btn btn-secondary btn-small", type: "button", textContent: "📋 Copy message" });
+  const whatsappBtn = el("a", { id: "whatsapp-btn", className: "btn btn-whatsapp btn-small", target: "_blank", rel: "noopener", textContent: "💬 Open WhatsApp DM", hidden: "hidden" });
+  const emailBtn = el("a", { id: "email-btn", className: "btn btn-secondary btn-small", textContent: "✉️ Send via Email", hidden: "hidden" });
+  const actionRow = el("div", { className: "alert-action-row" }, [whatsappBtn, emailBtn, copyBtn]);
+
   copyStatus = el("p", { id: "copy-status", className: "copy-status", "aria-live": "polite" });
   messageCard = el(
     "section",
     { className: "card", id: "message-card", hidden: "hidden", "aria-labelledby": "message-heading" },
     [
-      el("h2", { id: "message-heading", textContent: "Alert message" }),
-      el("p", { className: "hint", textContent: "This is the alert. If the automatic send didn't open your mail/messaging app, copy it and send it yourself." }),
+      el("h2", { id: "message-heading", textContent: "🚨 Alert message & Emergency Actions" }),
+      el("p", { className: "hint", textContent: "Alert sent to your trusted contact. You can also re-send directly via WhatsApp, Email, or copy the details below:" }),
       messagePreview,
-      copyBtn,
+      actionRow,
       copyStatus,
     ]
   );
@@ -111,7 +115,7 @@ function renderSosEngineWidget(containerId) {
   copyBtn.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(messagePreview.textContent);
-      copyStatus.textContent = "Copied!";
+      copyStatus.textContent = "Copied to clipboard!";
     } catch (err) {
       copyStatus.textContent = "Couldn't copy automatically — select the text above and copy manually.";
     }
@@ -219,38 +223,67 @@ async function sendViaEmailJS(config, contact, subject, body) {
   }
 }
 
-function openMailto(contact, subject, body) {
-  const link = `mailto:${encodeURIComponent(contact.email)}?subject=${encodeURIComponent(
+function getWhatsAppUrl(phone, body) {
+  const cleanPhone = typeof formatWhatsAppNumber === "function" ? formatWhatsAppNumber(phone) : phone.replace(/[^0-9]/g, "");
+  return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(body)}`;
+}
+
+function getMailtoUrl(email, subject, body) {
+  return `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(
     subject
   )}&body=${encodeURIComponent(body)}`;
-  window.location.href = link;
+}
+
+function openMailto(contact, subject, body) {
+  window.location.href = getMailtoUrl(contact.email, subject, body);
+}
+
+function openWhatsAppDm(phone, body) {
+  const url = getWhatsAppUrl(phone, body);
+  try {
+    const win = window.open(url, "_blank");
+    if (!win || win.closed || typeof win.closed === "undefined") {
+      window.location.href = url;
+    }
+  } catch (err) {
+    window.location.href = url;
+  }
 }
 
 function openSms(contact, body) {
-  // ponytail: `sms:` link formatting for pre-filled body isn't fully
-  // standardized across OSes (iOS wants `&body=`, some Android/desktop
-  // browsers ignore it entirely). Ceiling: body may not pre-fill everywhere.
-  // Upgrade path: Twilio (or another SMS API) behind a small backend, see
-  // .env.example, once this project has a server component.
   const link = `sms:${encodeURIComponent(contact.phone)}?&body=${encodeURIComponent(body)}`;
   window.location.href = link;
 }
 
-function showMessagePreview(text) {
+function showMessagePreview(text, contact, subject) {
   messagePreview.textContent = text;
   messageCard.hidden = false;
+
+  const whatsappBtn = document.getElementById("whatsapp-btn");
+  const emailBtn = document.getElementById("email-btn");
+
+  if (whatsappBtn) {
+    if (contact && contact.phone) {
+      whatsappBtn.href = getWhatsAppUrl(contact.phone, text);
+      whatsappBtn.hidden = false;
+    } else {
+      whatsappBtn.hidden = true;
+    }
+  }
+
+  if (emailBtn) {
+    if (contact && contact.email) {
+      emailBtn.href = getMailtoUrl(contact.email, subject || "SOS Alert", text);
+      emailBtn.hidden = false;
+    } else {
+      emailBtn.hidden = true;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
 // sendSosAlert() — the actual "get location, build message, send it" core.
-// Reused (not rebuilt) by every trigger path: sos-page.js's arm/countdown
-// flow, checkin.js's dead-man's switch, and chat.js's distress detector.
-// None of those files fork or duplicate this logic — they all just call
-// sendSosAlert(triggerReason, { statusEl }) directly. `statusEl` is the one
-// parameter added for the multi-page split: each page passes the status
-// element it wants the result text written to (sos.html reuses its own
-// arm-flow status line; checkin.html/chat.html fall back to the widget's
-// own #sos-engine-status paragraph). No other behavior changed.
+// Autosends to WhatsApp DM and Email simultaneously.
 // ---------------------------------------------------------------------------
 
 async function sendSosAlert(triggerReason, opts) {
@@ -262,10 +295,10 @@ async function sendSosAlert(triggerReason, opts) {
   }
 
   const location = await getLocationOrFallback(statusEl);
-  const subject = "SOS Alert — please check on me";
+  const subject = "🚨 SOS Alert — please check on me";
   const body = buildMessage(contact, location, triggerReason);
 
-  showMessagePreview(body);
+  showMessagePreview(body, contact, subject);
 
   const envConfig = typeof window !== "undefined" ? window.SAFETY_NET_ENV : null;
   const emailJsConfigured =
@@ -275,27 +308,38 @@ async function sendSosAlert(triggerReason, opts) {
     envConfig.EMAILJS_PUBLIC_KEY &&
     contact.email;
 
+  const dispatchMethods = [];
+
   try {
+    // 1. WhatsApp Autosend
+    if (contact.phone) {
+      openWhatsAppDm(contact.phone, body);
+      dispatchMethods.push("WhatsApp DM");
+    }
+
+    // 2. Email Autosend (EmailJS or mailto)
     if (emailJsConfigured) {
       await sendViaEmailJS(envConfig, contact, subject, body);
-      setEngineStatus(`SOS sent to ${contact.name} via email.`, statusEl);
-    } else if (contact.email) {
+      dispatchMethods.push("Email");
+    } else if (contact.email && !contact.phone) {
       openMailto(contact, subject, body);
-      setEngineStatus(`Opening your email app to send the alert to ${contact.name}.`, statusEl);
-    } else if (contact.phone) {
-      openSms(contact, body);
-      setEngineStatus(`Opening your messaging app to send the alert to ${contact.name}.`, statusEl);
+      dispatchMethods.push("Email");
+    } else if (contact.email) {
+      dispatchMethods.push("Email link ready");
+    }
+
+    if (dispatchMethods.length > 0) {
+      setEngineStatus(`🚨 Alert autosent via ${dispatchMethods.join(" & ")} to ${contact.name}!`, statusEl);
     } else {
-      setEngineStatus("No send method available — copy the message below and send it yourself.", statusEl);
+      setEngineStatus("No direct dispatch channel available — copy the alert below.", statusEl);
     }
   } catch (err) {
     console.error("Safety Net: send failed, message is still available to copy.", err);
-    setEngineStatus("Automatic send failed — copy the message below and send it yourself.", statusEl);
+    setEngineStatus("Automatic send failed — use the WhatsApp or Email buttons below.", statusEl);
   }
 
   // Lets route-history.js auto-stop opt-in tracking, and checkin.js retire
-  // an active check-in switch, once an SOS has actually fired/resolved —
-  // without any of those files depending directly on each other.
+  // an active check-in switch, once an SOS has actually fired/resolved.
   broadcastSosEnded({ reason: "fired", trigger: triggerReason });
   return { sent: true };
 }

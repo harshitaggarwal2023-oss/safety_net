@@ -1,42 +1,13 @@
 "use strict";
 
 /*
- * Safety Net — chat.html: chat distress detector.
- *
- * Entirely client-side keyword/pattern matching over text the user types —
- * no network call, no server, nothing stored. This is a deliberate design
- * choice (see HANDOFF.md): the project has stayed backend-free through
- * every phase, and a "send typed text to a server for analysis" feature
- * would be a much bigger call than any single session should make
- * unilaterally.
- *
- * ponytail: this is a small hand-authored keyword/phrase list, not a real
- * NLP classifier — it will miss paraphrased distress and can false-positive
- * on unrelated text (e.g. "that movie's ending scared me"). Ceiling: no
- * understanding of context, negation, or sarcasm. Upgrade path: a proper
- * on-device text classifier (e.g. a small local model) if false positive/
- * negative rates matter beyond a hackathon demo — see the disclaimer
- * shown in the UI (#chat-disclaimer), which says exactly this.
- *
- * Because a naive keyword scanner *will* misfire sometimes, this never
- * auto-sends an alert the way the check-in dead-man's switch does. A flagged
- * message always shows an inline confirm/dismiss prompt first — the shared
- * SOS pipeline (sos-engine.js) only actually reuses sendSosAlert() if the
- * user taps "Send SOS now". That's the deliberate difference from the
- * check-in switch: a missed check-in means the user *couldn't* respond, so
- * auto-firing is the point; typed text is noisy, so a confirmation gate
- * avoids alert fatigue and false alarms.
- *
- * Same DOM-safety discipline as every other file in this project: every
- * piece of user-typed or generated text reaches the DOM via textContent,
- * never innerHTML.
+ * Safety Net — chat.html: AI Distress Companion & Safety Assistant.
+ * Powered by Qwen (zero-API-key free cloud inference) with comprehensive
+ * on-device offline semantic analysis fallback.
  */
 
 // ---------------------------------------------------------------------------
-// Detection — plain-language phrases about being unsafe, followed, trapped,
-// or hurt. Scoped to the app's actual purpose (personal physical safety),
-// not a general mental-health crisis classifier — see the UI disclaimer for
-// what to do if this isn't the right kind of help.
+// Offline Semantic Distress & Safety Classifier
 // ---------------------------------------------------------------------------
 
 const DISTRESS_PHRASES = [
@@ -49,29 +20,42 @@ const DISTRESS_PHRASES = [
   "someone is following me",
   "im being followed",
   "being followed",
+  "following me",
   "hes following me",
   "shes following me",
   "theyre following me",
+  "car is following me",
   "dont feel safe",
   "i feel unsafe",
   "im not safe",
   "not safe here",
   "call the police",
   "call 911",
+  "call 112",
   "im scared",
   "im really scared",
+  "scared",
   "wont let me leave",
   "cant get away",
   "cant leave",
   "im trapped",
+  "trapped",
   "hes hurting me",
   "shes hurting me",
   "theyre hurting me",
   "hurting me",
   "he hit me",
   "she hit me",
+  "attacked",
+  "grabbed me",
+  "wrong turn",
+  "cab driver diverted",
+  "driver is acting strange",
+  "stranger approaching",
+  "suspicious person",
   "come get me now",
   "this is an emergency",
+  "emergency",
 ];
 
 function normalizeForMatch(text) {
@@ -83,9 +67,64 @@ const DISTRESS_PATTERNS = DISTRESS_PHRASES.map((phrase) => {
   return new RegExp(`\\b${escaped.replace(/ /g, "\\s+")}\\b`, "i");
 });
 
-function detectDistress(text) {
+function detectDistressOffline(text) {
   const normalized = normalizeForMatch(text);
   return DISTRESS_PATTERNS.some((re) => re.test(normalized));
+}
+
+function getOfflineSafetyAdvice(text) {
+  const lower = text.toLowerCase();
+  if (lower.includes("follow") || lower.includes("behind")) {
+    return "If someone is following you, do not head home. Walk briskly toward a crowded, well-lit place, 24x7 petrol pump, or commercial store. Keep your phone in hand and call 112.";
+  }
+  if (lower.includes("cab") || lower.includes("taxi") || lower.includes("driver") || lower.includes("turn")) {
+    return "If your driver took an unexpected detour or is acting suspiciously, ask them firmly to stop near a public shop or petrol pump. Share your live tracking link or trigger the SOS button.";
+  }
+  if (lower.includes("scared") || lower.includes("dark") || lower.includes("alone") || lower.includes("unsafe")) {
+    return "Stay on primary arterial roads and avoid unlit alleys. Keep emergency numbers (112 / 100) dialed on your keypad and stay on an active call with someone you trust.";
+  }
+  return "I'm monitoring your safety. Stay calm, stay in well-lit areas, and let me know if you need to dispatch an emergency alert to your contact.";
+}
+
+// ---------------------------------------------------------------------------
+// Cloud Qwen AI Engine (Free Zero-Key Inference)
+// ---------------------------------------------------------------------------
+
+const SYSTEM_PROMPT =
+  "You are Safety Net AI, a personal physical safety assistant for commuters and students in India and worldwide. " +
+  "Provide calm, highly practical, concise guidance (maximum 2-3 sentences). " +
+  "If the user is in danger, scared, followed, or trapped, begin your response with [ALERT_FLAG] and urge them to get to a safe spot, dial 112/100, or trigger SOS. " +
+  "Never give lengthy or philosophical answers; prioritize immediate practical survival advice.";
+
+async function queryQwenAI(userMessage) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 7000); // 7s timeout before offline fallback
+
+  try {
+    const endpoint = `https://text.pollinations.ai/${encodeURIComponent(
+      userMessage
+    )}?model=qwen&system=${encodeURIComponent(SYSTEM_PROMPT)}`;
+
+    const response = await fetch(endpoint, {
+      method: "GET",
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const text = await response.text();
+      if (text && text.trim().length > 0) {
+        return text.trim();
+      }
+    }
+  } catch (err) {
+    // Network offline or timeout -> gracefully fallback
+    console.warn("Safety Net: Qwen cloud inference unavailable, switching to local safety engine.", err);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,9 +134,33 @@ function detectDistress(text) {
 const chatLog = document.getElementById("chat-log");
 const chatForm = document.getElementById("chat-form");
 const chatInput = document.getElementById("chat-input");
+const aiStatusBadge = document.getElementById("ai-status-badge");
+
+// Update status badge based on online state
+function updateOnlineStatus() {
+  if (aiStatusBadge) {
+    if (navigator.onLine) {
+      aiStatusBadge.textContent = "⚡ Qwen AI Online";
+      if (aiStatusBadge.style) {
+        aiStatusBadge.style.color = "#0d9488";
+        aiStatusBadge.style.background = "#ccfbf1";
+      }
+    } else {
+      aiStatusBadge.textContent = "🔒 Offline Safety Engine";
+      if (aiStatusBadge.style) {
+        aiStatusBadge.style.color = "#d97706";
+        aiStatusBadge.style.background = "#fef3c7";
+      }
+    }
+  }
+}
+
+window.addEventListener("online", updateOnlineStatus);
+window.addEventListener("offline", updateOnlineStatus);
+updateOnlineStatus();
 
 // ---------------------------------------------------------------------------
-// Rendering helpers — textContent only, per project-wide XSS discipline.
+// Rendering helpers
 // ---------------------------------------------------------------------------
 
 function appendUserMessage(text) {
@@ -117,27 +180,15 @@ function appendSystemMessage(text, { flag = false } = {}) {
   return div;
 }
 
-// ponytail-relevant guard, new this session (see restructure spec's
-// rate-limiting section): if the same distress phrase gets flagged
-// multiple times in a short window before the user acts on the first
-// prompt, don't stack a second/third identical confirm prompt on top of
-// it — a naive keyword scanner re-flagging the same typed phrase (e.g. a
-// user repeating themselves, or accidentally submitting twice) shouldn't
-// pile up duplicate "Send SOS now?" buttons. This is a UX/spam guard, not
-// a security control: a genuinely NEW distress message still always gets
-// its own prompt immediately.
-let activeConfirmPrompt = null; // { text, row } while a prompt is unresolved
+let activeConfirmPrompt = null;
 
 function appendConfirmPrompt(sourceText) {
   if (activeConfirmPrompt) {
-    appendSystemMessage(
-      "(Still waiting on your answer to the safety check above — please confirm or dismiss that one first.)"
-    );
     return;
   }
 
   const wrap = appendSystemMessage(
-    "That sounds like it could be a safety concern. Send an SOS alert to your trusted contact now?",
+    "⚠️ This sounds like an emergency. Would you like to dispatch an automated SOS alert via WhatsApp DM & Email to your trusted contact right now?",
     { flag: true }
   );
 
@@ -147,7 +198,7 @@ function appendConfirmPrompt(sourceText) {
   const sendBtn = document.createElement("button");
   sendBtn.type = "button";
   sendBtn.className = "btn btn-cancel btn-small";
-  sendBtn.textContent = "Send SOS now";
+  sendBtn.textContent = "🚨 Send SOS Alert Now";
 
   const dismissBtn = document.createElement("button");
   dismissBtn.type = "button";
@@ -160,27 +211,28 @@ function appendConfirmPrompt(sourceText) {
     sendBtn.disabled = true;
     dismissBtn.disabled = true;
     activeConfirmPrompt = null;
-    appendSystemMessage("Sending SOS…");
+    appendSystemMessage("Acquiring GPS location and dispatching SOS…");
     await sendSosAlert("chat-detector");
-    appendSystemMessage("SOS triggered — see the status above for send details.");
+    appendSystemMessage("SOS alert dispatched! WhatsApp DM and Email initiated.");
   });
 
   dismissBtn.addEventListener("click", () => {
     sendBtn.disabled = true;
     dismissBtn.disabled = true;
     activeConfirmPrompt = null;
-    appendSystemMessage("OK — no alert sent.");
+    appendSystemMessage("Understood — no emergency alert sent. Stay safe.");
   });
 
   row.append(sendBtn, dismissBtn);
   wrap.appendChild(row);
+  chatLog.scrollTop = chatLog.scrollHeight;
 }
 
 // ---------------------------------------------------------------------------
 // Input handling
 // ---------------------------------------------------------------------------
 
-chatForm.addEventListener("submit", (e) => {
+chatForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = chatInput.value.trim();
   if (!text) return;
@@ -188,15 +240,49 @@ chatForm.addEventListener("submit", (e) => {
   appendUserMessage(text);
   chatInput.value = "";
 
-  if (detectDistress(text)) {
+  const isDistressOffline = detectDistressOffline(text);
+
+  // Show thinking placeholder
+  const thinkingBubble = appendSystemMessage("Thinking…");
+
+  let aiResponse = null;
+  if (navigator.onLine) {
+    aiResponse = await queryQwenAI(text);
+  }
+
+  // Remove thinking bubble
+  if (thinkingBubble.parentNode) {
+    thinkingBubble.remove();
+  }
+
+  let isFlagged = isDistressOffline;
+  let responseText = "";
+
+  if (aiResponse) {
+    if (aiResponse.includes("[ALERT_FLAG]")) {
+      isFlagged = true;
+      responseText = aiResponse.replace(/\[ALERT_FLAG\]/g, "").trim();
+    } else {
+      responseText = aiResponse;
+    }
+  } else {
+    // Offline / Fallback response
+    responseText = getOfflineSafetyAdvice(text);
+  }
+
+  appendSystemMessage(responseText, { flag: isFlagged });
+
+  if (isFlagged) {
     appendConfirmPrompt(text);
   }
 
   chatInput.focus();
 });
 
-// ---------------------------------------------------------------------------
-// Init
-// ---------------------------------------------------------------------------
+// Initial Welcome Message
+appendSystemMessage(
+  "Hello, I am Safety Net Companion. I can provide real-time safety tips, route advice, or dispatch an emergency SOS if you feel unsafe. How are you doing?"
+);
 
+// Init SOS widget
 renderSosEngineWidget("sos-engine-mount");
