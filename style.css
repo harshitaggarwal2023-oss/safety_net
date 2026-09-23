@@ -49,9 +49,9 @@ body {
 }
 
 .app {
-  max-width: 620px;
+  max-width: 840px;
   margin: 0 auto;
-  padding: 16px 16px 64px;
+  padding: 8px 16px 48px;
   animation: pageEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: opacity, transform;
 }
@@ -99,51 +99,51 @@ body {
 .page-header {
   text-align: center;
   color: var(--text-inverse);
-  padding: 18px 0 20px;
+  padding: 6px 0 10px;
 }
 
 .brand-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  margin-bottom: 6px;
+  gap: 10px;
+  margin-bottom: 2px;
 }
 
 .brand-logo {
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
 }
 
 .app-header h1,
 .page-header h1 {
   margin: 0;
-  font-size: 1.85rem;
+  font-size: 1.48rem;
   font-weight: 800;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .header-badge {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   background: #1e293b;
   color: #38bdf8;
   border: 1px solid #334155;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 999px;
   font-weight: 600;
   vertical-align: middle;
 }
 
 .tagline {
-  margin: 8px 0 0;
+  margin: 4px 0 0;
   color: #94a3b8;
-  font-size: 0.92rem;
-  line-height: 1.5;
+  font-size: 0.86rem;
+  line-height: 1.4;
 }
 
 /* ---------------------------------------------------------------------- */
@@ -154,8 +154,8 @@ body {
   background: #1e293b;
   border: 1px solid #334155;
   border-radius: var(--radius-md);
-  padding: 10px 14px;
-  margin-bottom: 18px;
+  padding: 6px 12px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1077,12 +1077,14 @@ select:focus {
 
 .nav-floating-wrapper {
   position: sticky;
-  top: 12px;
+  top: 8px;
   z-index: 1000;
-  padding: 0 14px;
+  padding: 0;
   margin: 0 auto;
-  max-width: 860px;
+  max-width: 1140px;
+  width: calc(100% - 24px);
   animation: navSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes navSlideDown {
@@ -1102,39 +1104,50 @@ select:focus {
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
-  padding: 8px 16px;
+  padding: 5px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-  transition: all 0.2s ease;
+  gap: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.nav-floating-wrapper.nav-scrolled .nav-capsule {
+  padding: 3px 12px;
+  background: rgba(11, 17, 32, 0.96);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+  border-color: rgba(14, 165, 164, 0.35);
 }
 
 .nav-brand {
   color: #ffffff;
   font-weight: 800;
   text-decoration: none;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   letter-spacing: -0.3px;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .nav-brand img {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
 }
 
 .nav-desktop-links {
   list-style: none;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   margin: 0;
   padding: 0;
+  white-space: nowrap;
+  flex-shrink: 1;
 }
 
 .nav-desktop-links a {
@@ -1142,11 +1155,13 @@ select:focus {
   align-items: center;
   color: #94a3b8;
   text-decoration: none;
-  font-size: 0.84rem;
+  font-size: 0.81rem;
   font-weight: 600;
-  padding: 6px 12px;
+  padding: 5px 9px;
   border-radius: 999px;
   transition: all 0.15s ease;
+  white-space: nowrap;
+  letter-spacing: -0.15px;
 }
 
 .nav-desktop-links a:hover {
@@ -1163,19 +1178,23 @@ select:focus {
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .nav-action-btn {
-  font-size: 0.8rem;
+  font-size: 0.77rem;
   font-weight: 700;
-  padding: 6px 14px;
+  padding: 4px 11px;
   border-radius: 999px;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   transition: all 0.15s ease;
+  white-space: nowrap;
+  line-height: 1.4;
 }
 
 .nav-action-btn-secondary {
@@ -1294,7 +1313,7 @@ select:focus {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 980px) {
   .nav-desktop-links,
   .nav-actions {
     display: none;

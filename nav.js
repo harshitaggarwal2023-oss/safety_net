@@ -162,6 +162,16 @@ function renderNav(currentPageKey) {
   wrapper.append(nav, mobileMenu);
   placeholder.replaceWith(wrapper);
 
+  const handleScroll = () => {
+    if (window.scrollY > 16) {
+      wrapper.classList.add("nav-scrolled");
+    } else {
+      wrapper.classList.remove("nav-scrolled");
+    }
+  };
+  window.addEventListener("scroll", handleScroll, { passive: true });
+  handleScroll();
+
   try {
     sessionStorage.setItem(LAST_PAGE_SESSION_KEY, currentPageKey);
   } catch (err) {
@@ -218,4 +228,32 @@ window.addEventListener("pageshow", () => {
     appEl.classList.remove("page-leaving");
   }
 });
+
+// ---------------------------------------------------------------------------
+// Dynamic Three.js Safety Mesh Background Loader
+// ---------------------------------------------------------------------------
+(function initThreeBackground() {
+  if (typeof window === "undefined" || document.getElementById("safety-mesh-canvas")) return;
+
+  const loadMeshScript = () => {
+    if (document.getElementById("safety-mesh-script")) return;
+    const s = document.createElement("script");
+    s.id = "safety-mesh-script";
+    s.src = "safety-mesh.js";
+    s.async = true;
+    document.body.appendChild(s);
+  };
+
+  if (window.THREE) {
+    loadMeshScript();
+  } else {
+    const three = document.createElement("script");
+    three.src = "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js";
+    three.async = true;
+    three.onload = loadMeshScript;
+    three.onerror = loadMeshScript; // fallback to 2D canvas if CDN unreachable
+    document.head.appendChild(three);
+  }
+})();
+
 
