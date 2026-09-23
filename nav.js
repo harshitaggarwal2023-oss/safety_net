@@ -176,3 +176,46 @@ function getLastSessionPage() {
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Smooth Page Navigation Interceptor
+// ---------------------------------------------------------------------------
+
+document.addEventListener("click", (e) => {
+  const link = e.target.closest("a");
+  if (!link || !link.href) return;
+
+  // Ignore external links, downloads, new tabs, tel:, mailto:
+  if (link.target === "_blank" || link.hasAttribute("download")) return;
+  if (link.href.startsWith("tel:") || link.href.startsWith("mailto:") || link.href.startsWith("javascript:")) return;
+
+  try {
+    const url = new URL(link.href, window.location.href);
+    if (url.origin !== window.location.origin) return;
+    if (url.pathname === window.location.pathname && (url.hash || url.search === window.location.search)) return;
+
+    const targetFile = url.pathname.split("/").pop() || "index.html";
+    const currentFile = window.location.pathname.split("/").pop() || "index.html";
+
+    if (targetFile !== currentFile) {
+      const appEl = document.querySelector(".app");
+      if (appEl) {
+        e.preventDefault();
+        appEl.classList.add("page-leaving");
+        setTimeout(() => {
+          window.location.href = link.href;
+        }, 130);
+      }
+    }
+  } catch (err) {
+    // allow default navigation
+  }
+});
+
+window.addEventListener("pageshow", () => {
+  const appEl = document.querySelector(".app");
+  if (appEl) {
+    appEl.classList.remove("page-leaving");
+  }
+});
+
